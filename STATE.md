@@ -1,54 +1,56 @@
 # STATE.md
 
 ## Meta
-- Last updated: 2026-04-29 15:40
+- Last updated: 2026-05-04 14:43
 - Owner: lower
 - Current phase: build
 
 ## 1. Current Objective
-- Sprint/iteration goal: Deliver Week alt board v1 MVP with manual-first table and market widgets
-- Deadline: 2026-05-01
-- Definition of done: Working board + refresh + local persistence + mobile readability + baseline tests
+- Sprint/iteration goal: Establish project baseline docs in English and align implementation scope for WEEK ALT.
+- Deadline: Not set.
+- Definition of done: Core docs updated, scope aligned, next implementation tasks identified.
 
 ## 2. Status Snapshot
 - Overall: on-track
-- Completion: 85%
-- Main blocker: Need dependency install and final test/build verification in current environment
+- Completion: 75%
+- Main blocker: No critical blocker; next focus is GitHub Pages preparation.
 
 ## 3. Active Tasks
 | ID | Task | Owner | Status | ETA | Notes |
 |---|---|---|---|---|---|
-| TASK-001 | Scaffold React+Vite+TS app | lower | done | 2026-04-29 | Completed |
-| TASK-002 | Implement widgets + table schema | lower | done | 2026-04-29 | Completed |
-| TASK-003 | Implement market adapters + local persistence | lower | done | 2026-04-29 | Completed |
-| TASK-004 | Run tests/build and fix issues | lower | in-progress | 2026-04-29 | Pending install/verification |
+| TASK-001 | Populate REQ/CONTEXT/STATE/TDD/DESIGN in English | lower | done | 2026-05-04 | Based on confirmed user answers |
+| TASK-002 | Add CSV import (export already exists) | lower | done | 2026-05-04 | Implemented with replace/merge prompt by coin symbol |
+| TASK-003 | Align branding details to WEEK ALT in runtime text | lower | done | 2026-05-04 | Browser title aligned to WEEK ALT |
 
 ## 4. Backlog (Long Horizon)
 | Priority | Item | Impact | Effort | Status |
 |---|---|---|---|---|
-| P0 | Export/import board state | high | med | todo |
-| P1 | Dynamic watchlist management UI | med | med | todo |
-| P1 | Advanced analytics columns toggle | med | med | todo |
+| P0 | GitHub Pages deployment path | high | med | todo |
+| P1 | Public release readiness (docs + safeguards) | med | med | todo |
+| P1 | Basic regression checklist automation | med | med | todo |
 
 ## 5. Recently Completed
-- 2026-04-29: Implemented v1 UI, data provider contract, local storage model, and baseline tests.
+- 2026-05-04: Initial project answers captured and translated to English documentation baseline.
+- 2026-05-04: Implemented CSV import + improved CSV export escaping + updated browser title to WEEK ALT.
+- 2026-05-04: Fixed CoinGecko mapping for ASTER and added retry/backoff + slower pacing for PWH/PWL OHLC refresh.
+- 2026-05-04: Added API reliability layer (retry + validation + health snapshots) and a separate `admin.html` diagnostics page.
 
 ## 6. Risks
 | Risk | Probability | Impact | Mitigation | Owner |
 |---|---|---|---|---|
-| External API instability | med | med | Fail-soft parsing and partial response handling | lower |
-| Coin id mismatch for niche symbols | med | low | Resolver fallback and N/A display | lower |
+| Public API rate limits | med | med | Throttling, partial refresh tolerance, preserve local data | lower |
+| Importing malformed CSV | med | med | Validation, reject bad rows, keep last good state | lower |
 
 ## 7. Decisions Since Last Update
-- Decision: Keep v1 backend-free and local-first.
-- Why: Ship MVP within 1-2 days.
-- Tradeoff: No sync across devices.
+- Decision: Keep current default coin list unchanged for now.
+- Why: User explicitly confirmed existing list.
+- Tradeoff: Faster start, but less flexibility until import flow is finalized.
 
 ## 8. Next 3 Actions
-1. Install dependencies and run tests/build locally.
-2. Fix any test/build issues and confirm responsive behavior.
-3. Prepare first polish pass against visual reference screenshot.
+1. Prepare GitHub Pages publish checklist.
+2. Add lightweight import validation report (rows added/updated/skipped).
+3. Add a quick backup/restore note in README for CSV workflow.
 
 ## 9. Handoff Notes
-- What the next contributor should do first: run `npm install`, `npm run test`, `npm run build`.
-- What to avoid: introducing backend or extra columns before v1 acceptance.
+- What the next contributor should do first: Test CSV import flows in browser with real files (replace + merge modes).
+- What to avoid: Breaking localStorage compatibility or overriding existing rows silently.

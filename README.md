@@ -1,3 +1,1 @@
-# Week alt board
-
-Manual-first altcoin dashboard with one-click market refresh.
+[video](https://youtu.be/U32FdySVc5M?si=ECvtO-d8uAILpPu2)

@@ -1,33 +1,33 @@
 # TDD.md
 
 ## Meta
-- Last updated: 2026-04-29
+- Last updated: 2026-05-04
 - Owner: lower
 - Status: active
 
 ## 1. Testing Strategy
-- Primary approach: Test-Driven Development (red -> green -> refactor)
-- Test pyramid ratio: 60% unit / 30% integration / 10% UI smoke
-- Coverage target: 70% lines for core modules in v1
+- Primary approach: Test-driven behavior checks for core data flows (`refresh`, `persist`, `import/export`).
+- Test pyramid ratio: Manual integration-heavy now; evolve toward balanced unit/integration coverage.
+- Coverage target: Focused coverage for parsing, persistence, and core metric integrity.
 
 ## 2. Test Environments
-- Local: Vitest + jsdom
-- CI: Not yet configured (planned in next iteration)
-- Staging: Not applicable for v1
+- Local: Browser run of `altdash.html`.
+- CI: Not configured yet.
+- Staging: GitHub Pages preview (planned).
 
 ## 3. Test Types
-- Unit: mapping and validation utilities
-- Integration: refresh flow + persistence behavior
-- Contract: adapter normalization against expected payload shape
-- E2E: deferred to v2
-- Visual regression: manual screenshot check in v1
-- Performance smoke: manual load and refresh responsiveness
+- Unit: CSV parse/validation helpers and metric recalculation helpers.
+- Integration: API refresh + UI update + persistence path.
+- Contract: Validate minimal expected shape from CoinGecko/FNG responses.
+- E2E: Manual scenario checks for filtering, editing, save/reload, import/export.
+- Visual regression: Manual screenshot comparison for major UI changes.
+- Performance smoke: Manual check for render/refresh responsiveness on desktop.
 
 ## 4. Red-Green-Refactor Workflow
-1. Write failing test that captures behavior.
-2. Implement minimal code to pass.
-3. Refactor with tests green.
-4. Update docs and state.
+1. Write failing checks for a specific behavior (for example, valid CSV import).
+2. Implement minimal change to pass.
+3. Refactor while preserving behavior.
+4. Update docs/state after acceptance.
 
 ## 5. Feature Test Template
 ### Feature Name
@@ -35,32 +35,32 @@
 - Context link: `CONTEXT.md#6-api-contracts`
 
 ### Cases
-1. Happy path: refresh updates market fields.
-2. Validation: invalid priority/trend values fallback to defaults.
-3. Error handling: partial endpoint failure keeps board usable.
-4. Edge conditions: unresolved coin id yields N/A market fields.
+1. Happy path: Valid refresh and valid CSV import/export round-trip.
+2. Validation: Reject malformed rows and unknown headers safely.
+3. Error handling: API failure does not clear existing rows.
+4. Edge conditions: Missing numeric values, duplicated symbols, partial import files.
 
 ### Test Data
-- Fixtures: inline mocked API-like payloads
-- Factories: lightweight provider stub for integration test
-- Mocks/stubs: custom `MarketDataProvider` in component tests
+- Fixtures: CSV samples (valid, invalid, partial).
+- Factories: In-memory coin row builder for deterministic checks.
+- Mocks/stubs: Stub API JSON payloads for non-network tests.
 
 ### Exit Criteria
-- All mandatory cases green.
-- No flaky tests.
-- Local test run green.
+- All mandatory behavior checks green.
+- No flaky manual flows in repeated refresh/import runs.
+- Documented known limitations for unresolved edge cases.
 
 ## 6. Regression Checklist
-- Existing core flows unaffected.
-- Backward compatibility validated for local storage keys.
-- Critical bug fixes covered by tests.
+- Existing core table/edit flows unaffected.
+- LocalStorage compatibility retained.
+- CSV export remains readable after import-enabled changes.
 
 ## 7. Quality Gates in CI
-- Lint/type checks: TypeScript strict build
-- Unit tests: required
-- Integration tests: required for persistence and refresh
-- E2E smoke: optional in v1
-- Coverage threshold: target 70% core modules
+- Lint/type checks: Not set yet.
+- Unit tests: Planned.
+- Integration tests: Planned.
+- E2E smoke: Planned.
+- Coverage threshold: To be defined after initial test harness setup.
 
 ## 8. Defect Log Template
 | Bug ID | Found in | Test added? | Root cause | Preventive action |
@@ -68,6 +68,6 @@
 | BUG-001 |  | yes/no |  |  |
 
 ## 9. Flakiness Protocol
-- How to quarantine: isolate unstable test with explicit TODO and owner
-- Max quarantine period: 3 days
-- Owner to fix: lower
+- How to quarantine: Mark unstable checks and isolate from release gate.
+- Max quarantine period: 7 days.
+- Owner to fix: lower.

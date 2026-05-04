@@ -1,91 +1,80 @@
 # CONTEXT.md
 
 ## Meta
-- Last updated: 2026-04-29
+- Last updated: 2026-05-04
 - Owner: lower
 - Status: active
 
 ## 1. System Overview
-- Product domain: Manual-first crypto watchlist dashboard
-- High-level architecture: Client-only SPA with external market-data adapters and local persistence
-- Core modules: UI board, market adapter, storage adapter, formatting/validation utils
+- Product domain: Crypto market screening for altcoins.
+- High-level architecture: Single static HTML application with embedded CSS/JS and client-side API calls.
+- Core modules: market widgets, screener table, local persistence, CSV transfer, modal/hover edit UI.
 
 ## 2. Tech Stack
-- Frontend: React + Vite + TypeScript
-- Backend: None (v1)
-- Database: None (v1)
-- Infra/Hosting: Static hosting compatible
-- CI/CD: Not configured in v1 repository state
+- Frontend: Vanilla HTML/CSS/JavaScript in `altdash.html`.
+- Backend: None.
+- Database: None (browser `localStorage`).
+- Infra/Hosting: Local file/web now; planned GitHub Pages publish.
+- CI/CD: Not configured yet.
 
 ## 3. Repository Map
-- `/`: docs + app config
-- `/src`: app source
-- `/src/services`: market adapter
-- `/src/lib`: storage, formatting, validation
-- `/src/test`: unit/integration tests
+- `/`: project docs and `altdash.html`.
+- `/app`: not used.
+- `/api`: not used.
+- `/tests`: not used yet.
+- `/docs`: represented by root markdown files.
 
 ## 4. Global Rules
-- Coding standards: TypeScript strict mode, small typed modules
-- Branching strategy: feature branches from main (prefix `codex/` when needed)
-- Versioning policy: incremental v1.x
-- Error handling policy: fail-soft for network data; never drop manual user data
-- Logging/observability policy: minimal console-based in v1 if needed
+- Coding standards: Keep implementation simple and readable; prefer explicit logic over framework abstractions.
+- Branching strategy: Feature branches from main (to be formalized later).
+- Versioning policy: Manual semantic tags later when public releases start.
+- Error handling policy: Do not block UI on partial API failures; show stale data safely.
+- Logging/observability policy: Browser console + in-UI status/toast feedback.
 
 ## 5. Domain Model
-- Entities: `AltRow`, `DashboardMetrics`, `RowTag`, `RowNote`
-- Relationships: Rows keyed by coin ticker; manual data attached per coin
-- Invariants: Priority and TREND must match allowed option lists
+- Entities: `CoinRow`, `MarketSnapshot`, `ColumnConfig`, `FilterState`.
+- Relationships: `CoinRow` drives table and summary widgets; `MarketSnapshot` updates global/ticker widgets.
+- Invariants: Coin symbol is uppercase; numeric fields are parseable numbers; `altdash.html` remains the main runtime artifact.
 
 ## 6. API Contracts
 - Public endpoints:
-  - Coingecko global metrics
-  - Coingecko simple price
-  - Coingecko coin search
-  - BlockchainCenter altcoin season index
-  - Alternative.me fear and greed
-- Internal endpoints/events: none
-- Request/response contracts: normalized into typed internal interfaces
-- Backward compatibility rules: graceful fallback to `null`/`N/A`
+  - CoinGecko `/coins/markets`, `/global`, `/coins/{id}/ohlc`.
+  - Alternative.me `/fng`.
+- Internal endpoints/events: None.
+- Request/response contracts: JSON responses mapped by coin id/symbol.
+- Backward compatibility rules: UI should not crash on missing fields; retain previous values when data is absent.
 
 ## 7. Data & Storage
-- Schemas:
-  - `week-alt-board.watchlist`: string[]
-  - `week-alt-board.notes`: Record<coin, { comment, thought }>
-  - `week-alt-board.tags`: Record<coin, { priority, trend }>
-- Migration policy: permissive parser with defaults
-- Retention policy: browser local persistence
-- Backup/recovery: manual export not in v1
+- Schemas: In-memory coin objects with key metrics (`price`, `pwh`, `pwl`, `ath`, `lastLow`, etc.).
+- Migration policy: Lightweight localStorage key migration when schema changes.
+- Retention policy: Persist data until user resets browser storage or imports replacement data.
+- Backup/recovery: CSV export/import for manual backup and restore.
 
 ## 8. Security & Compliance
-- AuthN/AuthZ: not applicable in v1
-- Secrets handling: no private secrets in client
-- PII/data classification: no PII expected
-- Compliance constraints: none defined for v1
+- AuthN/AuthZ: Not applicable (single-user client app).
+- Secrets handling: No secrets in source; only public API usage.
+- PII/data classification: No personal/sensitive data expected.
+- Compliance constraints: None defined for current personal phase.
 
 ## 9. Performance Constraints
-- Latency SLO: first useful paint under 2s on desktop
-- Throughput target: single-user local workflow
-- Cost constraints: zero backend cost for v1
+- Latency SLO: Initial render should feel immediate on desktop; refresh operations should complete within API constraints.
+- Throughput target: Manual refresh usage for small fixed coin list.
+- Cost constraints: Zero-cost hosting and free public API tiers.
 
 ## 10. Architecture Decision Log (ADR-lite)
-1. Decision: Local-first board without backend
-   - Context: Need fast MVP in 1-2 days
-   - Choice: Store manual fields in localStorage and fetch market data on demand
-   - Consequences: No cross-device sync in v1
-
-2. Decision: Manual refresh only
-   - Context: Reduce complexity and avoid unnecessary API calls
-   - Choice: User-triggered refresh button
-   - Consequences: Data can be stale between refreshes
+1. Decision: Keep app as a single HTML file.
+   - Context: Fast iteration, personal use, simple deployment path to GitHub Pages.
+   - Choice: No framework/build pipeline in phase 1.
+   - Consequences: Easy shipping and portability; reduced modularity/test tooling by default.
 
 ## 11. Dependencies
-- External services: Coingecko, Alternative.me, BlockchainCenter
-- Third-party SDKs: React ecosystem
-- Known limitations: Some coin symbol->id mappings may require resolver fallback
+- External services: CoinGecko API, Alternative.me Fear & Greed API.
+- Third-party SDKs: None.
+- Known limitations: API rate limits and occasional response gaps.
 
 ## 12. Operational Runbook
-- Start: `npm install && npm run dev`
-- Build: `npm run build`
-- Test: `npm run test`
-- Deploy: static bundle from `dist/`
-- Rollback: redeploy previous static bundle
+- Start: Open `altdash.html` in browser.
+- Build: Not required (static file).
+- Test: Manual checks + future scripted checks.
+- Deploy: Publish the same file via GitHub Pages.
+- Rollback: Restore previous `altdash.html` and/or local CSV snapshot.

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WEEK ALT Admin</title>
+<style>
+:root{--bg:#0b0d10;--bg2:#111318;--bg3:#0d0f13;--border:#1e2530;--text:#e2e8f0;--dim:#64748b;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--blue:#60a5fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px 'Segoe UI',system-ui,sans-serif}
+.wrap{max-width:1150px;margin:0 auto;padding:16px}
+.h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.tt{font-weight:700;font-size:18px;color:var(--amber)}
+.sub{color:var(--dim);font-size:11px}
+.btn{background:#1a2030;border:1px solid #2a3a55;color:var(--blue);padding:6px 10px;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{background:#22304a}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px}
+.c-title{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #141922;padding:6px 0}
+.row:last-child{border-bottom:0}
+.k{color:var(--dim)}
+.ok{color:var(--green)}
+.warn{color:var(--amber)}
+.bad{color:var(--red)}
+.list{margin:0;padding-left:16px;color:#cbd5e1}
+.pre{white-space:pre-wrap;word-break:break-word;background:var(--bg3);border:1px solid var(--border);padding:8px;border-radius:8px;color:#cbd5e1;max-height:320px;overflow:auto}
+.small{font-size:11px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="h">
+    <div>
+      <div class="tt">WEEK ALT Admin</div>
+      <div class="sub">Diagnostics only. Read-only mode for the main dashboard state.</div>
+    </div>
+    <a class="btn" href="./altdash.html">← Main Dashboard</a>
+    <button class="btn" id="run-live">Run Live API Check</button>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="c-title">Saved Health Snapshot</div>
+      <div id="health-box" class="small">No data yet</div>
+    </section>
+    <section class="card">
+      <div class="c-title">Saved Coin ID Audit</div>
+      <div id="audit-box" class="small">No data yet</div>
+    </section>
+  </div>
+
+  <div class="grid" style="margin-top:10px">
+    <section class="card">
+      <div class="c-title">Live API Result</div>
+      <div id="live-summary" class="small">Press “Run Live API Check”.</div>
+      <div id="live-errors" class="pre" style="margin-top:8px;display:none"></div>
+    </section>
+    <section class="card">
+      <div class="c-title">Top Widgets API Integrity</div>
+      <div id="widgets-box" class="small">No widget diagnostics yet.</div>
+    </section>
+  </div>
+
+  <div class="grid" style="margin-top:10px">
+    <section class="card">
+      <div class="c-title">Widget Raw Values (Saved)</div>
+      <div id="widget-raw" class="pre">No snapshot yet.</div>
+    </section>
+    <section class="card">
+      <div class="c-title">Operational Notes</div>
+      <ul class="list">
+        <li>Main dashboard can continue working with partial API failures.</li>
+        <li>429/5xx usually means temporary rate limiting. Retry later.</li>
+        <li>Missing mapped IDs means a CoinGecko ID update is required.</li>
+        <li>ASI widget uses BlockchainCenter live page payload parsing.</li>
+        <li>This admin page does not overwrite core coin data.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<script>
+'use strict';
+const HEALTH_KEY='altdash_health_v1';
+const AUDIT_KEY='altdash_audit_v1';
+const COINS_KEY='altdash4';
+const CG='https://api.coingecko.com/api/v3';
+const FNG='https://api.alternative.me/fng/?limit=1';
+const ASI_URL='https://www.blockchaincenter.net/altcoin-season-index/';
+const CG_IDS={
+  GRASS:'grass', BERA:'berachain-bera', ASTER:'aster-2', HYPE:'hyperliquid', AAVE:'aave', PENGU:'pudgy-penguins',
+  ENA:'ethena', PENDLE:'pendle', VIRTUAL:'virtual-protocol', ZRO:'layerzero', TON:'the-open-network', MNT:'mantle',
+  AERO:'aerodrome-finance', MET:'metaplex', PUMP:'pump-fun', ARB:'arbitrum', INJ:'injective-protocol', SOL:'solana'
+};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+function pretty(v){return esc(typeof v==='string'?v:JSON.stringify(v,null,2));}
+function fmtTs(ts){if(!ts) return '—'; const d=new Date(ts); return isNaN(d)?esc(ts):d.toLocaleString('en');}
+function statusClass(v){ if(v===true||v==='ok') return 'ok'; if(v===false||v==='failed') return 'bad'; return 'warn'; }
+function extractJsonObjectByMarker(text, marker){
+  const altMarker = marker.replace(/"/g,'\\"');
+  let mIdx=text.indexOf(marker);
+  let usedMarker=marker;
+  if(mIdx<0){
+    mIdx=text.indexOf(altMarker);
+    usedMarker=altMarker;
+  }
+  if(mIdx<0) throw new Error(`Marker not found: ${marker}`);
+  const start=text.indexOf('{', mIdx+usedMarker.length);
+  if(start<0) throw new Error(`Object start not found: ${marker}`);
+  let depth=0;
+  for(let i=start;i<text.length;i++){
+    const ch=text[i];
+    if(ch==='{') depth++;
+    else if(ch==='}'){
+      depth--;
+      if(depth===0){
+        const raw=text.slice(start,i+1);
+        return raw.includes('\\"') ? raw.replace(/\\"/g,'\"') : raw;
+      }
+    }
+  }
+  throw new Error(`Object end not found: ${marker}`);
+}
+
+function readJson(key){ try{ const s=localStorage.getItem(key); return s?JSON.parse(s):null; }catch(e){ return null; } }
+
+function renderKV(el, pairs){
+  el.innerHTML = pairs.map(([k,v,cls])=>`<div class="row"><span class="k">${esc(k)}</span><span class="${cls||''}">${esc(v)}</span></div>`).join('');
+}
+
+function renderSaved(){
+  const h=readJson(HEALTH_KEY);
+  const a=readJson(AUDIT_KEY);
+  const hb=document.getElementById('health-box');
+  const ab=document.getElementById('audit-box');
+  const wb=document.getElementById('widgets-box');
+  const wr=document.getElementById('widget-raw');
+
+  if(!h){ hb.textContent='No snapshot yet.'; }
+  else{
+    const staleCount=(h.coins?.stalePrice?.length||0)+(h.coins?.staleAth?.length||0)+(h.coins?.staleAtl?.length||0);
+    renderKV(hb,[
+      ['Timestamp', fmtTs(h.ts)],
+      ['Summary', h.summary||'—', statusClass(h.summary==='ok')],
+      ['Last refresh', h.lastRefresh||'—'],
+      ['Fresh price count', String(h.coins?.freshPriceCount??'—')],
+      ['Stale fields (total)', String(staleCount), staleCount?'warn':'ok'],
+      ['Prices endpoint', String(h.endpoints?.prices?.ok===true?'ok':'failed'), statusClass(h.endpoints?.prices?.ok===true)],
+      ['Global endpoint', String(h.endpoints?.global?.ok===true?'ok':'failed'), statusClass(h.endpoints?.global?.ok===true)],
+      ['FNG endpoint', String(h.endpoints?.fng?.ok===true?'ok':'failed'), statusClass(h.endpoints?.fng?.ok===true)],
+      ['ASI endpoint', String(h.endpoints?.asi?.ok===true?'ok':'failed'), statusClass(h.endpoints?.asi?.ok===true)],
+      ['PWH/PWL failed coins', String(h.endpoints?.pwhl?.failedCoins?.length||0), (h.endpoints?.pwhl?.failedCoins?.length||0)?'warn':'ok'],
+    ]);
+
+    const w=h.widgets||{};
+    const t=w.ticker||{};
+    const d=w.dominance||{};
+    const f=w.fearGreed||{};
+    const c=w.chart||{};
+    const numOk=v=>Number.isFinite(Number(v));
+    const tickerOk = ['btcPrice','ethPrice','bnbPrice','solPrice','btcChg','ethChg','bnbChg','solChg'].every(k=>numOk(t[k]));
+    const domOk = numOk(d.btcDom) && numOk(d.ethDom) && numOk(d.otherDom) && numOk(d.totalMcap);
+    const fngOk = numOk(f.value) && typeof f.label==='string' && f.label.length>0;
+    const chartOk = c.source==='coingecko_market_chart' && !c.error && Number(c.points?.['30d']||0)>=2;
+    const asi = h.widgets?.asi || {};
+    const asiSrc = asi.source || 'unknown';
+    renderKV(wb,[
+      ['Ticker widget fields', tickerOk?'ok':'issue', tickerOk?'ok':'warn'],
+      ['Dominance widget fields', domOk?'ok':'issue', domOk?'ok':'warn'],
+      ['F&G widget fields', fngOk?'ok':'issue', fngOk?'ok':'warn'],
+      ['Chart widget source', chartOk?'ok':'issue', chartOk?'ok':'warn'],
+      ['Chart points (30d)', String(c.points?.['30d']||0), Number(c.points?.['30d']||0)>=2?'ok':'warn'],
+      ['ASI source', asiSrc, asiSrc==='blockchaincenter_live'?'ok':'warn'],
+      ['ASI value', String(asi.value ?? '—'), Number.isFinite(Number(asi.value))?'ok':'warn'],
+      ['ASI error', asi.error || '—', asi.error?'bad':''],
+    ]);
+    wr.textContent = JSON.stringify(h.widgets||{},null,2);
+  }
+  if(!h){
+    wb.textContent='No widget snapshot yet.';
+    wr.textContent='No snapshot yet.';
+  }
+
+  if(!a){ ab.textContent='No audit yet.'; }
+  else{
+    renderKV(ab,[
+      ['Timestamp', fmtTs(a.ts)],
+      ['Audit status', a.ok?'ok':'issue', statusClass(a.ok)],
+      ['Requested IDs', String(a.requested??'—')],
+      ['Received IDs', String(a.received??'—')],
+      ['Missing IDs', String(a.missingIds?.length||0), (a.missingIds?.length||0)?'bad':'ok'],
+      ['Error', a.error||'—', a.error?'bad':''],
+    ]);
+    if(a.missingIds?.length){
+      const extra=document.createElement('div');
+      extra.className='small';
+      extra.style.marginTop='8px';
+      extra.textContent='Missing: '+a.missingIds.join(', ');
+      ab.appendChild(extra);
+    }
+  }
+}
+
+async function runLive(){
+  const btn=document.getElementById('run-live');
+  const sum=document.getElementById('live-summary');
+  const err=document.getElementById('live-errors');
+  btn.disabled=true;
+  btn.textContent='Running...';
+  err.style.display='none';
+  err.textContent='';
+  sum.innerHTML='Running checks...';
+
+  const out={ ts:new Date().toISOString(), errors:[] };
+  try{
+    const stored=readJson(COINS_KEY);
+    const symbols=(Array.isArray(stored)?stored:[]).map(c=>String(c.coin||'').toUpperCase()).filter(Boolean);
+    const ids=[...new Set(symbols.map(s=>CG_IDS[s]).filter(Boolean))];
+
+    const marketsUrl=`${CG}/coins/markets?vs_currency=usd&ids=${ids.join(',')}&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=24h`;
+    const [marketsRes, globalRes, fngRes] = await Promise.allSettled([
+      fetch(marketsUrl,{headers:{Accept:'application/json'}}),
+      fetch(`${CG}/global`,{headers:{Accept:'application/json'}}),
+      fetch(FNG,{headers:{Accept:'application/json'}}),
+    ]);
+
+    out.coinSymbols=symbols.length;
+    out.coinIds=ids.length;
+
+    let marketsList=[];
+    if(marketsRes.status==='fulfilled' && marketsRes.value.ok){
+      marketsList=await marketsRes.value.json();
+      const got=new Set((Array.isArray(marketsList)?marketsList:[]).map(x=>x?.id).filter(Boolean));
+      out.markets={ ok:true, received:Array.isArray(marketsList)?marketsList.length:0, missingIds:ids.filter(id=>!got.has(id)), invalidRows:(Array.isArray(marketsList)?marketsList:[]).filter(x=>!Number.isFinite(Number(x?.current_price))).length };
+    }else{
+      out.markets={ ok:false };
+      out.errors.push('markets failed');
+    }
+
+    if(globalRes.status==='fulfilled' && globalRes.value.ok){
+      const g=await globalRes.value.json();
+      const d=g?.data||{};
+      out.global={ ok:true, btcDom:Number.isFinite(Number(d?.market_cap_percentage?.btc)), ethDom:Number.isFinite(Number(d?.market_cap_percentage?.eth)), totalMcap:Number.isFinite(Number(d?.total_market_cap?.usd)) };
+      if(!out.global.btcDom || !out.global.ethDom || !out.global.totalMcap) out.errors.push('global payload missing fields');
+    }else{
+      out.global={ ok:false };
+      out.errors.push('global failed');
+    }
+
+    if(fngRes.status==='fulfilled' && fngRes.value.ok){
+      const f=await fngRes.value.json();
+      const row=f?.data?.[0];
+      out.fng={ ok:true, value:Number.isFinite(Number(row?.value)), label:typeof row?.value_classification==='string' };
+      if(!out.fng.value || !out.fng.label) out.errors.push('fng payload missing fields');
+    }else{
+      out.fng={ ok:false };
+      out.errors.push('fng failed');
+    }
+
+    const tickerIds=['bitcoin','ethereum','binancecoin','solana'];
+    const byId={};
+    (Array.isArray(marketsList)?marketsList:[]).forEach(x=>{if(x?.id)byId[x.id]=x;});
+    const missingTicker=tickerIds.filter(id=>!byId[id]);
+    const invalidTicker=tickerIds.filter(id=>{
+      const it=byId[id];
+      if(!it) return false;
+      return !Number.isFinite(Number(it.current_price)) || !Number.isFinite(Number(it.price_change_percentage_24h));
+    });
+    out.widgets = {
+      ticker: { ok: missingTicker.length===0 && invalidTicker.length===0, missingTicker, invalidTicker },
+      dominance: {
+        ok: out.global?.ok===true && out.global?.btcDom===true && out.global?.ethDom===true && out.global?.totalMcap===true,
+      },
+      fearGreed: { ok: out.fng?.ok===true && out.fng?.value===true && out.fng?.label===true },
+      chart: { ok:false, points:0, sourceCoins:0, failedCoins:0 },
+      asi: { ok:false, source:'unknown', value:null, error:null },
+    };
+    if(!out.widgets.ticker.ok) out.errors.push('ticker widget source data invalid');
+    if(!out.widgets.dominance.ok) out.errors.push('dominance widget source data invalid');
+    if(!out.widgets.fearGreed.ok) out.errors.push('fear/greed widget source data invalid');
+
+    const chartIds = ids.slice(0,8);
+    let chartOkCoins=0, chartFail=0;
+    let minPoints=Infinity;
+    for(const id of chartIds){
+      try{
+        const rr = await fetch(`${CG}/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`, { headers:{Accept:'application/json'} });
+        if(!rr.ok){ chartFail++; continue; }
+        const jj = await rr.json();
+        const pts = Array.isArray(jj?.prices) ? jj.prices.length : 0;
+        if(pts>=2){ chartOkCoins++; minPoints=Math.min(minPoints, pts); }
+        else chartFail++;
+      }catch(e){ chartFail++; }
+    }
+    out.widgets.chart = {
+      ok: chartOkCoins>=2 && Number.isFinite(minPoints) && minPoints>=2,
+      points: Number.isFinite(minPoints)?minPoints:0,
+      sourceCoins: chartOkCoins,
+      failedCoins: chartFail,
+    };
+    if(!out.widgets.chart.ok) out.errors.push('chart widget source data invalid');
+
+    try{
+      const asiRes = await fetch(ASI_URL,{headers:{Accept:'text/html'}});
+      if(!asiRes.ok) throw new Error(`HTTP ${asiRes.status}`);
+      const html = await asiRes.text();
+      const latest = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
+      const score = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
+      const v = Number(latest?.['90']);
+      const points = Object.keys(score?.['90']||{}).length;
+      out.widgets.asi = {
+        ok: Number.isFinite(v) && points>=2,
+        source:'blockchaincenter_live',
+        value: Number.isFinite(v)?v:null,
+        points,
+        error: null,
+      };
+      if(!out.widgets.asi.ok) out.errors.push('asi widget source data invalid');
+    }catch(e){
+      out.widgets.asi = {
+        ok:false,
+        source:'blockchaincenter_live',
+        value:null,
+        points:0,
+        error:String(e?.message||'asi_failed'),
+      };
+      out.errors.push('asi widget source data invalid');
+    }
+
+    const critical = [out.markets?.ok, out.global?.ok, out.fng?.ok].filter(Boolean).length;
+    const summary = critical===3 && (!out.markets.missingIds || out.markets.missingIds.length===0) ? 'OK' : (critical===0 ? 'FAILED' : 'PARTIAL');
+
+    sum.innerHTML = `
+      <div class="row"><span class="k">Run at</span><span>${esc(fmtTs(out.ts))}</span></div>
+      <div class="row"><span class="k">Overall</span><span class="${summary==='OK'?'ok':summary==='PARTIAL'?'warn':'bad'}">${summary}</span></div>
+      <div class="row"><span class="k">Coins loaded</span><span>${esc(String(out.coinSymbols))}</span></div>
+      <div class="row"><span class="k">Mapped IDs</span><span>${esc(String(out.coinIds))}</span></div>
+      <div class="row"><span class="k">Markets status</span><span class="${statusClass(out.markets?.ok)}">${out.markets?.ok?'ok':'failed'}</span></div>
+      <div class="row"><span class="k">Missing IDs</span><span class="${(out.markets?.missingIds?.length||0)?'bad':'ok'}">${esc(String(out.markets?.missingIds?.length||0))}</span></div>
+      <div class="row"><span class="k">Invalid market rows</span><span class="${(out.markets?.invalidRows||0)?'warn':'ok'}">${esc(String(out.markets?.invalidRows||0))}</span></div>
+      <div class="row"><span class="k">Global status</span><span class="${statusClass(out.global?.ok)}">${out.global?.ok?'ok':'failed'}</span></div>
+      <div class="row"><span class="k">FNG status</span><span class="${statusClass(out.fng?.ok)}">${out.fng?.ok?'ok':'failed'}</span></div>
+      <div class="row"><span class="k">Ticker widget integrity</span><span class="${statusClass(out.widgets?.ticker?.ok)}">${out.widgets?.ticker?.ok?'ok':'issue'}</span></div>
+      <div class="row"><span class="k">Dominance widget integrity</span><span class="${statusClass(out.widgets?.dominance?.ok)}">${out.widgets?.dominance?.ok?'ok':'issue'}</span></div>
+      <div class="row"><span class="k">F&G widget integrity</span><span class="${statusClass(out.widgets?.fearGreed?.ok)}">${out.widgets?.fearGreed?.ok?'ok':'issue'}</span></div>
+      <div class="row"><span class="k">Chart widget integrity</span><span class="${statusClass(out.widgets?.chart?.ok)}">${out.widgets?.chart?.ok?'ok':'issue'}</span></div>
+      <div class="row"><span class="k">ASI widget integrity</span><span class="${statusClass(out.widgets?.asi?.ok)}">${out.widgets?.asi?.ok?'ok':'issue'}</span></div>
+    `;
+
+    const wb=document.getElementById('widgets-box');
+    renderKV(wb,[
+      ['Ticker from API', out.widgets?.ticker?.ok?'ok':'issue', out.widgets?.ticker?.ok?'ok':'warn'],
+      ['Ticker missing ids', String(out.widgets?.ticker?.missingTicker?.length||0), (out.widgets?.ticker?.missingTicker?.length||0)?'bad':'ok'],
+      ['Ticker invalid rows', String(out.widgets?.ticker?.invalidTicker?.length||0), (out.widgets?.ticker?.invalidTicker?.length||0)?'warn':'ok'],
+      ['Dominance from API', out.widgets?.dominance?.ok?'ok':'issue', out.widgets?.dominance?.ok?'ok':'warn'],
+      ['F&G from API', out.widgets?.fearGreed?.ok?'ok':'issue', out.widgets?.fearGreed?.ok?'ok':'warn'],
+      ['Chart from API', out.widgets?.chart?.ok?'ok':'issue', out.widgets?.chart?.ok?'ok':'warn'],
+      ['Chart source coins', String(out.widgets?.chart?.sourceCoins||0), (out.widgets?.chart?.sourceCoins||0)>=2?'ok':'warn'],
+      ['Chart failed coins', String(out.widgets?.chart?.failedCoins||0), (out.widgets?.chart?.failedCoins||0)?'warn':'ok'],
+      ['Chart min points', String(out.widgets?.chart?.points||0), (out.widgets?.chart?.points||0)>=2?'ok':'warn'],
+      ['ASI source', out.widgets?.asi?.source||'unknown', out.widgets?.asi?.ok?'ok':'warn'],
+      ['ASI value (90d)', String(out.widgets?.asi?.value??'—'), Number.isFinite(Number(out.widgets?.asi?.value))?'ok':'warn'],
+      ['ASI history points', String(out.widgets?.asi?.points||0), (out.widgets?.asi?.points||0)>=2?'ok':'warn'],
+      ['ASI error', out.widgets?.asi?.error||'—', out.widgets?.asi?.error?'bad':''],
+    ]);
+
+    if((out.errors&&out.errors.length) || (out.markets?.missingIds?.length||0)){
+      err.style.display='block';
+      err.textContent = JSON.stringify(out,null,2);
+    }
+  }catch(e){
+    sum.innerHTML = `<span class="bad">Live check failed: ${esc(e?.message||'unknown')}</span>`;
+    err.style.display='block';
+    err.textContent = String(e?.stack||e);
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Run Live API Check';
+  }
+}
+
+document.getElementById('run-live').onclick=runLive;
+renderSaved();
+</script>
+</body>
+</html>

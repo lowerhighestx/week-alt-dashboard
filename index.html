@@ -692,7 +692,7 @@ function renderASIWidget(){
   const val = Math.max(0,Math.min(100, Number(asiState.value)||0));
   const label = asiState.label || (val>=75?'Altcoin Season':'Bitcoin Season');
   const labelColor = val>=75 ? '#22c55e' : '#f59e0b';
-  const sourceLbl = asiState.source==='blockchaincenter_live'
+  const sourceLbl = (asiState.source==='blockchaincenter_live' || asiState.source==='snapshot_json' || asiState.source==='cmc_api')
     ? `API • ${asiState.lastUpdated ? new Date(asiState.lastUpdated).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'}) : ''}`
     : (asiState.error ? 'fallback' : 'local');
   w.innerHTML=`
@@ -1375,6 +1375,7 @@ function startClock(){
 const CG  = 'https://api.coingecko.com/api/v3';
 const FNG = 'https://api.alternative.me/fng/?limit=1';
 const ASI_URL = 'https://www.blockchaincenter.net/altcoin-season-index/';
+const ASI_SNAPSHOT_URL = './data/asi.latest.json';
 
 async function fetchWithRetry(url, options={}, cfg={}){
   const retries = cfg.retries ?? 2;
@@ -1422,15 +1423,29 @@ async function fetchText(url, cfg={}){
 }
 
 function extractJsonObjectByMarker(text, marker){
-  const altMarker = marker.replace(/"/g,'\\"');
-  let mIdx = text.indexOf(marker);
-  let usedMarker = marker;
-  if(mIdx<0){
-    mIdx = text.indexOf(altMarker);
-    usedMarker = altMarker;
+  const markerText = String(marker || '');
+  const keyMatch = markerText.match(/"([^"]+)"/);
+  const key = keyMatch ? keyMatch[1] : markerText.replace(/[^a-zA-Z0-9_-]/g,'');
+  const patterns = [
+    `"${key}":{`,
+    `\\"${key}\\":{`,
+    markerText,
+    markerText.replace(/"/g,'\\"'),
+  ].filter(Boolean);
+
+  let mIdx = -1;
+  let usedPattern = '';
+  for(const p of patterns){
+    const i = text.indexOf(p);
+    if(i>=0 && (mIdx<0 || i<mIdx)){
+      mIdx = i;
+      usedPattern = p;
+    }
   }
-  if(mIdx<0) throw new Error(`Marker not found: ${marker}`);
-  const start = text.indexOf('{', mIdx + usedMarker.length);
+  if(mIdx<0) throw new Error(`Marker not found: ${markerText}`);
+  const start = usedPattern.endsWith('{')
+    ? (mIdx + usedPattern.length - 1)
+    : text.indexOf('{', mIdx + usedPattern.length);
   if(start<0) throw new Error(`Object start not found for: ${marker}`);
   let depth=0;
   for(let i=start;i<text.length;i++){
@@ -1464,62 +1479,116 @@ function fmtAsiDateLabel(input){
   return `${text}, ${new Date().getFullYear()}`;
 }
 
-async function fetchASIData(){
-  try{
-    const html = await fetchText(ASI_URL, { retries:2, baseDelayMs:600 });
-    const latestObj = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
-    const scoreObj = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
-    const score90 = scoreObj?.['90'];
-    if(!score90 || typeof score90!=='object') throw new Error('ASI score[90] missing');
+function parseAsiSnapshot(payload){
+  if(!payload || typeof payload!=='object') throw new Error('ASI snapshot invalid payload');
+  const value = Number(payload.value);
+  const yesterday = Number(payload.yesterday);
+  const prevWeek = Number(payload.prevWeek);
+  const prevMonth = Number(payload.prevMonth);
+  const monthScore = Number(payload.monthScore);
+  const yearScore = Number(payload.yearScore);
+  const yHighVal = Number(payload?.yHigh?.value);
+  const yLowVal = Number(payload?.yLow?.value);
+  if(!Number.isFinite(value)) throw new Error('ASI snapshot missing value');
+  return {
+    value,
+    yesterday: Number.isFinite(yesterday) ? yesterday : value,
+    prevWeek: Number.isFinite(prevWeek) ? prevWeek : value,
+    prevMonth: Number.isFinite(prevMonth) ? prevMonth : value,
+    monthScore: Number.isFinite(monthScore) ? monthScore : value,
+    yearScore: Number.isFinite(yearScore) ? yearScore : value,
+    label: value>=75 ? 'Altcoin Season' : 'Bitcoin Season',
+    yHigh:{
+      value: Number.isFinite(yHighVal) ? yHighVal : value,
+      date: fmtAsiDateLabel(payload?.yHigh?.display || payload?.yHigh?.date || ''),
+    },
+    yLow:{
+      value: Number.isFinite(yLowVal) ? yLowVal : value,
+      date: fmtAsiDateLabel(payload?.yLow?.display || payload?.yLow?.date || ''),
+    },
+    source:'snapshot_json',
+    lastUpdated: payload.fetchedAt || payload.updatedAt || new Date().toISOString(),
+    error:null,
+  };
+}
 
-    const entries = Object.entries(score90)
-      .map(([d,v])=>({date:d, value:Number(v)}))
-      .filter(x=>Number.isFinite(x.value))
-      .sort((a,b)=>a.date.localeCompare(b.date));
-    if(entries.length<2) throw new Error('ASI history too short');
+function parseAsiLiveHtml(html){
+  const latestObj = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
+  const scoreObj = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
+  const score90 = scoreObj?.['90'];
+  if(!score90 || typeof score90!=='object') throw new Error('ASI score[90] missing');
+  const entries = Object.entries(score90)
+    .map(([d,v])=>({date:d, value:Number(v)}))
+    .filter(x=>Number.isFinite(x.value))
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  if(entries.length<2) throw new Error('ASI history too short');
 
-    const cur = Number(latestObj?.['90']);
-    const month = Number(latestObj?.['30']);
-    const year = Number(latestObj?.['365']);
-    const safeCur = Number.isFinite(cur) ? cur : entries[entries.length-1].value;
-    const prev = entries[entries.length-2].value;
-    const prevWeek = entries[Math.max(0, entries.length-8)].value;
-    const prevMonth = entries[Math.max(0, entries.length-31)].value;
-    const last365 = entries.slice(Math.max(0,entries.length-365));
-    const high = last365.reduce((a,b)=> b.value>a.value ? b : a, last365[0]);
-    const low  = last365.reduce((a,b)=> b.value<a.value ? b : a, last365[0]);
-
-    asiState = {
-      ...asiState,
+  const cur = Number(latestObj?.['90']);
+  const month = Number(latestObj?.['30']);
+  const year = Number(latestObj?.['365']);
+  const safeCur = Number.isFinite(cur) ? cur : entries[entries.length-1].value;
+  const prev = entries[entries.length-2].value;
+  const prevWeek = entries[Math.max(0, entries.length-8)].value;
+  const prevMonth = entries[Math.max(0, entries.length-31)].value;
+  const last365 = entries.slice(Math.max(0,entries.length-365));
+  const high = last365.reduce((a,b)=> b.value>a.value ? b : a, last365[0]);
+  const low  = last365.reduce((a,b)=> b.value<a.value ? b : a, last365[0]);
+  return {
+    state:{
       value: safeCur,
       yesterday: prev,
       prevWeek: prevWeek,
       prevMonth: prevMonth,
-      monthScore: Number.isFinite(month) ? month : asiState.monthScore,
-      yearScore: Number.isFinite(year) ? year : asiState.yearScore,
+      monthScore: Number.isFinite(month) ? month : safeCur,
+      yearScore: Number.isFinite(year) ? year : safeCur,
       label: safeCur>=75 ? 'Altcoin Season' : 'Bitcoin Season',
       yHigh:{ value: high.value, date: fmtAsiDate(high.date) },
       yLow:{ value: low.value, date: fmtAsiDate(low.date) },
       source:'blockchaincenter_live',
       lastUpdated:new Date().toISOString(),
       error:null,
-    };
+    },
+    points: entries.length,
+  };
+}
+
+async function fetchASIData(){
+  const errors = [];
+  try{
+    const snap = await fetchJSON(`${ASI_SNAPSHOT_URL}?v=${Date.now()}`, { retries:1, baseDelayMs:250, retryableStatuses:[500,502,503,504] });
+    asiState = { ...asiState, ...parseAsiSnapshot(snap) };
     renderASIWidget();
     return {
       ok:true,
       value: asiState.value,
       source: asiState.source,
       lastUpdated: asiState.lastUpdated,
-      points: entries.length,
+      points: Number(snap?.points||0),
     };
-  }catch(e){
-    asiState = {
-      ...asiState,
-      source: asiState.lastUpdated ? asiState.source : 'mock_fallback',
-      error: String(e?.message||'asi_fetch_failed'),
-    };
-    renderASIWidget();
-    throw e;
+  }catch(e1){
+    errors.push(`snapshot:${String(e1?.message||e1)}`);
+    try{
+      const html = await fetchText(ASI_URL, { retries:2, baseDelayMs:600 });
+      const parsed = parseAsiLiveHtml(html);
+      asiState = { ...asiState, ...parsed.state };
+      renderASIWidget();
+      return {
+        ok:true,
+        value: asiState.value,
+        source: asiState.source,
+        lastUpdated: asiState.lastUpdated,
+        points: parsed.points,
+      };
+    }catch(e2){
+      errors.push(`live:${String(e2?.message||e2)}`);
+      asiState = {
+        ...asiState,
+        source: asiState.lastUpdated ? asiState.source : 'mock_fallback',
+        error: errors.join(' | '),
+      };
+      renderASIWidget();
+      throw new Error(asiState.error || 'asi_fetch_failed');
+    }
   }
 }
 

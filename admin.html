@@ -89,6 +89,7 @@ const COINS_KEY='altdash4';
 const CG='https://api.coingecko.com/api/v3';
 const FNG='https://api.alternative.me/fng/?limit=1';
 const ASI_URL='https://www.blockchaincenter.net/altcoin-season-index/';
+const ASI_SNAPSHOT_URL='./data/asi.latest.json';
 const CG_IDS={
   GRASS:'grass', BERA:'berachain-bera', ASTER:'aster-2', HYPE:'hyperliquid', AAVE:'aave', PENGU:'pudgy-penguins',
   ENA:'ethena', PENDLE:'pendle', VIRTUAL:'virtual-protocol', ZRO:'layerzero', TON:'the-open-network', MNT:'mantle',
@@ -100,15 +101,29 @@ function pretty(v){return esc(typeof v==='string'?v:JSON.stringify(v,null,2));}
 function fmtTs(ts){if(!ts) return '—'; const d=new Date(ts); return isNaN(d)?esc(ts):d.toLocaleString('en');}
 function statusClass(v){ if(v===true||v==='ok') return 'ok'; if(v===false||v==='failed') return 'bad'; return 'warn'; }
 function extractJsonObjectByMarker(text, marker){
-  const altMarker = marker.replace(/"/g,'\\"');
-  let mIdx=text.indexOf(marker);
-  let usedMarker=marker;
-  if(mIdx<0){
-    mIdx=text.indexOf(altMarker);
-    usedMarker=altMarker;
+  const markerText = String(marker || '');
+  const keyMatch = markerText.match(/"([^"]+)"/);
+  const key = keyMatch ? keyMatch[1] : markerText.replace(/[^a-zA-Z0-9_-]/g,'');
+  const patterns = [
+    `"${key}":{`,
+    `\\"${key}\\":{`,
+    markerText,
+    markerText.replace(/"/g,'\\"'),
+  ].filter(Boolean);
+
+  let mIdx = -1;
+  let usedPattern = '';
+  for(const p of patterns){
+    const i = text.indexOf(p);
+    if(i>=0 && (mIdx<0 || i<mIdx)){
+      mIdx = i;
+      usedPattern = p;
+    }
   }
-  if(mIdx<0) throw new Error(`Marker not found: ${marker}`);
-  const start=text.indexOf('{', mIdx+usedMarker.length);
+  if(mIdx<0) throw new Error(`Marker not found: ${markerText}`);
+  const start = usedPattern.endsWith('{')
+    ? (mIdx + usedPattern.length - 1)
+    : text.indexOf('{', mIdx + usedPattern.length);
   if(start<0) throw new Error(`Object start not found: ${marker}`);
   let depth=0;
   for(let i=start;i<text.length;i++){
@@ -304,30 +319,46 @@ async function runLive(){
     if(!out.widgets.chart.ok) out.errors.push('chart widget source data invalid');
 
     try{
-      const asiRes = await fetch(ASI_URL,{headers:{Accept:'text/html'}});
-      if(!asiRes.ok) throw new Error(`HTTP ${asiRes.status}`);
-      const html = await asiRes.text();
-      const latest = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
-      const score = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
-      const v = Number(latest?.['90']);
-      const points = Object.keys(score?.['90']||{}).length;
+      const snapRes = await fetch(`${ASI_SNAPSHOT_URL}?v=${Date.now()}`,{headers:{Accept:'application/json'}});
+      if(!snapRes.ok) throw new Error(`HTTP ${snapRes.status}`);
+      const snap = await snapRes.json();
+      const v = Number(snap?.value);
+      const points = Number(snap?.points||0);
       out.widgets.asi = {
         ok: Number.isFinite(v) && points>=2,
-        source:'blockchaincenter_live',
+        source:'snapshot_json',
         value: Number.isFinite(v)?v:null,
         points,
         error: null,
       };
       if(!out.widgets.asi.ok) out.errors.push('asi widget source data invalid');
-    }catch(e){
-      out.widgets.asi = {
-        ok:false,
-        source:'blockchaincenter_live',
-        value:null,
-        points:0,
-        error:String(e?.message||'asi_failed'),
-      };
-      out.errors.push('asi widget source data invalid');
+    }catch(eSnap){
+      try{
+        const asiRes = await fetch(ASI_URL,{headers:{Accept:'text/html'}});
+        if(!asiRes.ok) throw new Error(`HTTP ${asiRes.status}`);
+        const html = await asiRes.text();
+        const latest = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
+        const score = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
+        const v = Number(latest?.['90']);
+        const points = Object.keys(score?.['90']||{}).length;
+        out.widgets.asi = {
+          ok: Number.isFinite(v) && points>=2,
+          source:'blockchaincenter_live',
+          value: Number.isFinite(v)?v:null,
+          points,
+          error: null,
+        };
+        if(!out.widgets.asi.ok) out.errors.push('asi widget source data invalid');
+      }catch(eLive){
+        out.widgets.asi = {
+          ok:false,
+          source:'snapshot_or_live_failed',
+          value:null,
+          points:0,
+          error:`snapshot:${String(eSnap?.message||eSnap)} | live:${String(eLive?.message||eLive)}`,
+        };
+        out.errors.push('asi widget source data invalid');
+      }
     }
 
     const critical = [out.markets?.ok, out.global?.ok, out.fng?.ok].filter(Boolean).length;

@@ -365,12 +365,16 @@ function loadChartCache(){
 function chartStatusText(){
   if(chartMeta.loading) return 'loading API data...';
   if(chartMeta.error) return 'api fallback';
-  if(chartMeta.lastUpdated) return `api • ${chartMeta.sourceCoins} coins`;
+  if(chartMeta.lastUpdated){
+    if(chartMeta.source==='cmc_altcoin_index') return 'api • CMC altcoin index';
+    if(chartMeta.source==='snapshot_alt_index') return 'api • snapshot';
+    return `api • ${chartMeta.sourceCoins} coins`;
+  }
   return chartMeta.source || 'fallback';
 }
 function chartLabelForSource(){
   if(chartMeta.loading) return 'Loading...';
-  if(chartMeta.source==='coingecko_market_chart') return 'API';
+  if(chartMeta.source==='coingecko_market_chart' || chartMeta.source==='cmc_altcoin_index' || chartMeta.source==='snapshot_alt_index') return 'API';
   if(chartMeta.error) return 'Fallback';
   return 'Local';
 }
@@ -401,46 +405,66 @@ async function fetchAltIndexData(){
   chartMeta.loading = true;
   chartMeta.error = null;
   renderChartWidget();
+  const errors = [];
   try{
-    const ids = [...new Set(coins.map(c=>CG_IDS[c.coin]).filter(Boolean))].slice(0,12);
-    const seriesList=[];
-    let failed=0;
-    for(const id of ids){
-      try{
-        const url=`${CG}/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`;
-        const payload = await fetchJSON(url, { retries:2, baseDelayMs:500 });
-        const prices = Array.isArray(payload?.prices) ? payload.prices.map(p=>Number(p?.[1])).filter(v=>Number.isFinite(v)&&v>0) : [];
-        if(prices.length>=2) seriesList.push(prices);
-        else failed++;
-        await new Promise(r=>setTimeout(r,180));
-      }catch(e){
-        failed++;
-      }
-    }
-    const altIdx90 = ensureSeriesLen(buildAltIndexFromSeries(seriesList));
-    if(!altIdx90.length || altIdx90.every(v=>!Number.isFinite(v))) throw new Error('No valid chart series');
-    chartData['90d']=ensureSeriesLen(tail(altIdx90,CHART_DAYS['90d']));
-    chartData['30d']=ensureSeriesLen(tail(altIdx90,CHART_DAYS['30d']));
-    chartData['7d']=ensureSeriesLen(tail(altIdx90,CHART_DAYS['7d']));
+    const snap = await fetchJSON(`${ALT_INDEX_SNAPSHOT_URL}?v=${Date.now()}`, { retries:1, baseDelayMs:250, retryableStatuses:[500,502,503,504] });
+    const parsed = parseAltIndexSnapshot(snap);
+    chartData = {
+      '7d': parsed.data['7d'],
+      '30d': parsed.data['30d'],
+      '90d': parsed.data['90d'],
+    };
     chartMeta = {
       ...chartMeta,
+      ...parsed.meta,
       loading:false,
-      sourceCoins:seriesList.length,
-      failedCoins:failed,
-      lastUpdated:new Date().toISOString(),
-      error:null,
-      source:'coingecko_market_chart',
     };
     saveChartCache();
     saveHealthSnapshot();
-  }catch(e){
-    chartMeta = {
-      ...chartMeta,
-      loading:false,
-      error:String(e?.message || 'chart_fetch_failed'),
-      source: chartMeta.lastUpdated ? chartMeta.source : 'mock_fallback',
-    };
-    saveHealthSnapshot();
+  }catch(eSnap){
+    errors.push(`snapshot:${String(eSnap?.message||eSnap)}`);
+    const ids = [...new Set(coins.map(c=>CG_IDS[c.coin]).filter(Boolean))].slice(0,12);
+    const seriesList=[];
+    let failed=0;
+    try{
+      for(const id of ids){
+        try{
+          const url=`${CG}/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`;
+          const payload = await fetchJSON(url, { retries:2, baseDelayMs:500 });
+          const prices = Array.isArray(payload?.prices) ? payload.prices.map(p=>Number(p?.[1])).filter(v=>Number.isFinite(v)&&v>0) : [];
+          if(prices.length>=2) seriesList.push(prices);
+          else failed++;
+          await new Promise(r=>setTimeout(r,180));
+        }catch(e){
+          failed++;
+        }
+      }
+      const altIdx90 = ensureSeriesLen(buildAltIndexFromSeries(seriesList));
+      if(!altIdx90.length || altIdx90.every(v=>!Number.isFinite(v))) throw new Error('No valid chart series');
+      chartData['90d']=ensureSeriesLen(tail(altIdx90,CHART_DAYS['90d']));
+      chartData['30d']=ensureSeriesLen(tail(altIdx90,CHART_DAYS['30d']));
+      chartData['7d']=ensureSeriesLen(tail(altIdx90,CHART_DAYS['7d']));
+      chartMeta = {
+        ...chartMeta,
+        loading:false,
+        sourceCoins:seriesList.length,
+        failedCoins:failed,
+        lastUpdated:new Date().toISOString(),
+        error:null,
+        source:'coingecko_market_chart',
+      };
+      saveChartCache();
+      saveHealthSnapshot();
+    }catch(eCg){
+      errors.push(`coingecko:${String(eCg?.message||eCg)}`);
+      chartMeta = {
+        ...chartMeta,
+        loading:false,
+        error:errors.join(' | ') || 'chart_fetch_failed',
+        source: chartMeta.lastUpdated ? chartMeta.source : 'mock_fallback',
+      };
+      saveHealthSnapshot();
+    }
   }
   renderChartWidget();
 }
@@ -1376,6 +1400,7 @@ const CG  = 'https://api.coingecko.com/api/v3';
 const FNG = 'https://api.alternative.me/fng/?limit=1';
 const ASI_URL = 'https://www.blockchaincenter.net/altcoin-season-index/';
 const ASI_SNAPSHOT_URL = './data/asi.latest.json';
+const ALT_INDEX_SNAPSHOT_URL = './data/alt-index.latest.json';
 
 async function fetchWithRetry(url, options={}, cfg={}){
   const retries = cfg.retries ?? 2;
@@ -1481,6 +1506,7 @@ function fmtAsiDateLabel(input){
 
 function parseAsiSnapshot(payload){
   if(!payload || typeof payload!=='object') throw new Error('ASI snapshot invalid payload');
+  const provider = String(payload.provider||'').toLowerCase();
   const value = Number(payload.value);
   const yesterday = Number(payload.yesterday);
   const prevWeek = Number(payload.prevWeek);
@@ -1506,9 +1532,29 @@ function parseAsiSnapshot(payload){
       value: Number.isFinite(yLowVal) ? yLowVal : value,
       date: fmtAsiDateLabel(payload?.yLow?.display || payload?.yLow?.date || ''),
     },
-    source:'snapshot_json',
+    source: provider==='cmc_pro_api' ? 'cmc_api' : 'snapshot_json',
     lastUpdated: payload.fetchedAt || payload.updatedAt || new Date().toISOString(),
     error:null,
+  };
+}
+
+function parseAltIndexSnapshot(payload){
+  if(!payload || typeof payload!=='object') throw new Error('Alt index snapshot invalid payload');
+  const s7 = ensureSeriesLen((payload?.series?.['7d']||[]).map(Number).filter(v=>Number.isFinite(v)));
+  const s30 = ensureSeriesLen((payload?.series?.['30d']||[]).map(Number).filter(v=>Number.isFinite(v)));
+  const s90 = ensureSeriesLen((payload?.series?.['90d']||[]).map(Number).filter(v=>Number.isFinite(v)));
+  if(s90.length<2) throw new Error('Alt index snapshot series is too short');
+  const provider = String(payload.provider||'').toLowerCase();
+  return {
+    data: { '7d':s7, '30d':s30, '90d':s90 },
+    meta: {
+      source: provider==='cmc_pro_api' ? 'cmc_altcoin_index' : 'snapshot_alt_index',
+      sourceCoins: Number(payload.sourceCoins||100),
+      failedCoins: Number(payload.failedCoins||0),
+      lastUpdated: payload.fetchedAt || payload.updatedAt || new Date().toISOString(),
+      error: null,
+      loading: false,
+    },
   };
 }
 

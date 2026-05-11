@@ -90,6 +90,7 @@ const CG='https://api.coingecko.com/api/v3';
 const FNG='https://api.alternative.me/fng/?limit=1';
 const ASI_URL='https://www.blockchaincenter.net/altcoin-season-index/';
 const ASI_SNAPSHOT_URL='./data/asi.latest.json';
+const ALT_INDEX_SNAPSHOT_URL='./data/alt-index.latest.json';
 const CG_IDS={
   GRASS:'grass', BERA:'berachain-bera', ASTER:'aster-2', HYPE:'hyperliquid', AAVE:'aave', PENGU:'pudgy-penguins',
   ENA:'ethena', PENDLE:'pendle', VIRTUAL:'virtual-protocol', ZRO:'layerzero', TON:'the-open-network', MNT:'mantle',
@@ -297,26 +298,44 @@ async function runLive(){
     if(!out.widgets.dominance.ok) out.errors.push('dominance widget source data invalid');
     if(!out.widgets.fearGreed.ok) out.errors.push('fear/greed widget source data invalid');
 
-    const chartIds = ids.slice(0,8);
-    let chartOkCoins=0, chartFail=0;
-    let minPoints=Infinity;
-    for(const id of chartIds){
-      try{
-        const rr = await fetch(`${CG}/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`, { headers:{Accept:'application/json'} });
-        if(!rr.ok){ chartFail++; continue; }
-        const jj = await rr.json();
-        const pts = Array.isArray(jj?.prices) ? jj.prices.length : 0;
-        if(pts>=2){ chartOkCoins++; minPoints=Math.min(minPoints, pts); }
-        else chartFail++;
-      }catch(e){ chartFail++; }
+    try{
+      const cRes = await fetch(`${ALT_INDEX_SNAPSHOT_URL}?v=${Date.now()}`, { headers:{Accept:'application/json'} });
+      if(!cRes.ok) throw new Error(`HTTP ${cRes.status}`);
+      const cSnap = await cRes.json();
+      const p7 = Array.isArray(cSnap?.series?.['7d']) ? cSnap.series['7d'].length : 0;
+      const p30 = Array.isArray(cSnap?.series?.['30d']) ? cSnap.series['30d'].length : 0;
+      const p90 = Array.isArray(cSnap?.series?.['90d']) ? cSnap.series['90d'].length : 0;
+      out.widgets.chart = {
+        ok: p7>=2 && p30>=2 && p90>=2,
+        points: p90,
+        sourceCoins: Number(cSnap?.sourceCoins||100),
+        failedCoins: Number(cSnap?.failedCoins||0),
+        source: cSnap?.provider||'snapshot_json',
+      };
+      if(!out.widgets.chart.ok) out.errors.push('chart widget source data invalid');
+    }catch(eChartSnap){
+      const chartIds = ids.slice(0,8);
+      let chartOkCoins=0, chartFail=0;
+      let minPoints=Infinity;
+      for(const id of chartIds){
+        try{
+          const rr = await fetch(`${CG}/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`, { headers:{Accept:'application/json'} });
+          if(!rr.ok){ chartFail++; continue; }
+          const jj = await rr.json();
+          const pts = Array.isArray(jj?.prices) ? jj.prices.length : 0;
+          if(pts>=2){ chartOkCoins++; minPoints=Math.min(minPoints, pts); }
+          else chartFail++;
+        }catch(e){ chartFail++; }
+      }
+      out.widgets.chart = {
+        ok: chartOkCoins>=2 && Number.isFinite(minPoints) && minPoints>=2,
+        points: Number.isFinite(minPoints)?minPoints:0,
+        sourceCoins: chartOkCoins,
+        failedCoins: chartFail,
+        source: 'coingecko_fallback',
+      };
+      if(!out.widgets.chart.ok) out.errors.push('chart widget source data invalid');
     }
-    out.widgets.chart = {
-      ok: chartOkCoins>=2 && Number.isFinite(minPoints) && minPoints>=2,
-      points: Number.isFinite(minPoints)?minPoints:0,
-      sourceCoins: chartOkCoins,
-      failedCoins: chartFail,
-    };
-    if(!out.widgets.chart.ok) out.errors.push('chart widget source data invalid');
 
     try{
       const snapRes = await fetch(`${ASI_SNAPSHOT_URL}?v=${Date.now()}`,{headers:{Accept:'application/json'}});

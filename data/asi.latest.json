@@ -1,23 +1,30 @@
 {
-  "provider": "blockchaincenter",
-  "sourceUrl": "https://www.blockchaincenter.net/altcoin-season-index/",
-  "fetchedAt": "2026-05-11T19:11:23.380Z",
-  "value": 35,
-  "yesterday": 37,
-  "prevWeek": 31,
-  "prevMonth": 43,
-  "monthScore": 41,
-  "yearScore": 33,
+  "provider": "cmc_pro_api",
+  "sourceUrl": "https://pro-api.coinmarketcap.com/v1/altcoin-season-index/latest",
+  "fetchedAt": "2026-05-11T20:12:55.305Z",
+  "value": 52,
+  "yesterday": 49,
+  "prevWeek": 39,
+  "prevMonth": 34,
+  "monthScore": 34,
+  "yearScore": 52,
   "label": "Bitcoin Season",
   "yHigh": {
-    "value": 80,
-    "date": "2025-09-11",
-    "display": "Sep 11, 2025"
+    "value": 78,
+    "date": "2025-09-20",
+    "display": "Sep 20, 2025"
   },
   "yLow": {
-    "value": 12,
-    "date": "2025-06-22",
-    "display": "Jun 22, 2025"
+    "value": 14,
+    "date": "2025-12-19",
+    "display": "Dec 19, 2025"
   },
-  "points": 3308
+  "points": 90,
+  "note": "CMC Top-100 methodology",
+  "providersTried": [
+    "cmc_pro_api",
+    "blockchaincenter",
+    "coinstats"
+  ],
+  "providerErrors": []
 }

@@ -21,17 +21,18 @@ jobs:
           node-version: "20"
 
       - name: Fetch latest ASI snapshot
+        env:
+          CMC_PRO_API_KEY: ${{ secrets.CMC_PRO_API_KEY }}
         run: node .github/scripts/update-asi.mjs
 
       - name: Commit and push if changed
         run: |
-          if git diff --quiet -- data/asi.latest.json; then
+          if git diff --quiet -- data/asi.latest.json data/alt-index.latest.json; then
             echo "No ASI changes."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/asi.latest.json
-          git commit -m "chore(data): update ASI snapshot"
+          git add data/asi.latest.json data/alt-index.latest.json
+          git commit -m "chore(data): update ASI + alt-index snapshots"
           git push
-

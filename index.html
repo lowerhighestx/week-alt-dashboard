@@ -187,7 +187,7 @@ th.drag-source{opacity:.4}
 <div id="app">
   <div class="header">
     <div><span class="logo">WEEK ALT </span><span class="logo-sub">v2.0 PRO</span></div>
-    <div><span id="clock"></span> <span id="live-date" style="color:#334155;font-size:10px"></span></div>
+    <div><span id="live-date" style="color:#334155;font-size:10px"></span></div>
     <div class="header-right">
       <span class="autosave">auto-save ✓</span>
       <button class="postbtn" id="post-btn" title="Screenshot and save">post 📸</button>
@@ -717,11 +717,10 @@ function renderASIWidget(){
   const label = asiState.label || (val>=75?'Altcoin Season':'Bitcoin Season');
   const labelColor = val>=75 ? '#22c55e' : '#f59e0b';
   const sourceLbl = (asiState.source==='blockchaincenter_live' || asiState.source==='snapshot_json' || asiState.source==='cmc_api')
-    ? `API • ${asiState.lastUpdated ? new Date(asiState.lastUpdated).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'}) : ''}`
-    : (asiState.error ? 'fallback' : 'local');
+    ? 'API'
+    : (asiState.error ? 'Fallback' : 'Local');
   w.innerHTML=`
-    <div class="wt">Altcoin Season Index</div>
-    <div style="font-size:9px;color:#334155;margin-bottom:2px">${sourceLbl}</div>
+    <div class="wt">Altcoin Season Index (${sourceLbl})</div>
     <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px">
       <span class="asi-val">${Math.round(val)}</span><span style="font-size:10px;color:#475569">/100</span>
     </div>
@@ -1387,10 +1386,8 @@ async function postScreenshot(){
 function startClock(){
   const tick=()=>{
     const now = new Date();
-    const cl=document.getElementById('clock');
-    if(cl) cl.textContent=now.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const dl=document.getElementById('live-date');
-    if(dl) dl.textContent='• '+now.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    if(dl) dl.textContent=now.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
   };
   tick();setInterval(tick,1000);
 }
@@ -1401,6 +1398,7 @@ const FNG = 'https://api.alternative.me/fng/?limit=1';
 const ASI_URL = 'https://www.blockchaincenter.net/altcoin-season-index/';
 const ASI_SNAPSHOT_URL = './data/asi.latest.json';
 const ALT_INDEX_SNAPSHOT_URL = './data/alt-index.latest.json';
+const TOKEN_QUOTES_SNAPSHOT_URL = './data/token-quotes.latest.json';
 
 async function fetchWithRetry(url, options={}, cfg={}){
   const retries = cfg.retries ?? 2;
@@ -1558,6 +1556,37 @@ function parseAltIndexSnapshot(payload){
   };
 }
 
+function fmtCapLabel(cap){
+  const n = Number(cap);
+  if(!Number.isFinite(n) || n<=0) return null;
+  if(n>=1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  return '$' + (n/1e6).toFixed(0) + 'M';
+}
+
+function parseTokenQuotesSnapshot(payload){
+  if(!payload || typeof payload!=='object') throw new Error('Token quotes snapshot invalid payload');
+  const raw = payload.quotes;
+  if(!raw || typeof raw!=='object') throw new Error('Token quotes snapshot missing quotes');
+  const out = {};
+  for(const [symbol, q] of Object.entries(raw)){
+    const price = Number(q?.price);
+    const marketCap = Number(q?.marketCap);
+    const p24h = Number(q?.percentChange24h);
+    out[symbol] = {
+      price: Number.isFinite(price) ? price : null,
+      marketCap: Number.isFinite(marketCap) ? marketCap : null,
+      percentChange24h: Number.isFinite(p24h) ? p24h : null,
+      capLabel: typeof q?.capLabel==='string' && q.capLabel ? q.capLabel : fmtCapLabel(marketCap),
+      lastUpdated: q?.lastUpdated || payload.fetchedAt || null,
+    };
+  }
+  return {
+    provider: String(payload.provider||'snapshot_json'),
+    fetchedAt: payload.fetchedAt || new Date().toISOString(),
+    quotes: out,
+  };
+}
+
 function parseAsiLiveHtml(html){
   const latestObj = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
   const scoreObj = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
@@ -1638,98 +1667,165 @@ async function fetchASIData(){
   }
 }
 
-// ONE request via /coins/markets — returns price, market_cap, ATH, ATL, 24h change
+// Hybrid source:
+// 1) CMC snapshot => price/cap/ticker
+// 2) CoinGecko markets => ATH/ATL + fallback for missing CMC rows
 async function fetchAllPrices(){
   const portfolioIds = [...new Set(coins.map(c=>CG_IDS[c.coin]).filter(Boolean))];
   const tickerIds    = ['bitcoin','ethereum','binancecoin','solana'];
   const allIds       = [...new Set([...portfolioIds, ...tickerIds])];
-
-  const url = `${CG}/coins/markets?vs_currency=usd&ids=${allIds.join(',')}`
-            + `&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=24h`;
-  const list = await fetchJSON(url, { retries:2, baseDelayMs:450 });
-  if(!Array.isArray(list)) throw new Error('Unexpected markets payload');
   const meta = {
     requested: portfolioIds.length,
-    received: list.length,
+    received: 0,
     updated: 0,
     missingIds: [],
     invalidRows: 0,
+    cmc: { ok:false, updated:0, missing:0, error:null, fetchedAt:null },
+    cg: { ok:false, priceFallback:0, athAtlUpdated:0, error:null },
   };
-  const returnedIds = new Set(list.map(x=>x?.id).filter(Boolean));
-  meta.missingIds = portfolioIds.filter(id=>!returnedIds.has(id));
 
-  // Index by CoinGecko id
-  const byId = {};
-  list.forEach(item => { if(item?.id) byId[item.id] = item; });
+  let cmcQuotes = {};
+  const cmcTicker = { BTC:false, ETH:false, BNB:false, SOL:false };
+  try{
+    const snapRaw = await fetchJSON(`${TOKEN_QUOTES_SNAPSHOT_URL}?v=${Date.now()}`, { retries:1, baseDelayMs:250, retryableStatuses:[500,502,503,504] });
+    const snap = parseTokenQuotesSnapshot(snapRaw);
+    cmcQuotes = snap.quotes || {};
+    meta.cmc.ok = true;
+    meta.cmc.fetchedAt = snap.fetchedAt;
 
-  // Update portfolio coins
-  coins.forEach(c=>{
-    const id   = CG_IDS[c.coin];
-    const item = id ? byId[id] : null;
-    if(!item){
-      markStale(c,'price','missing_market_item');
-      return;
-    }
+    coins.forEach(c=>{
+      const q = cmcQuotes[c.coin];
+      const p = toNumOrNull(q?.price);
+      if(p==null || p<=0){
+        meta.cmc.missing++;
+        markStale(c,'price','cmc_quote_missing');
+        return;
+      }
+      c.price = p;
+      markFresh(c,'price');
+      meta.updated++;
+      meta.cmc.updated++;
+      c.perf = c.pwl > 0 ? +((p - c.pwl) / c.pwl * 100).toFixed(1) : c.perf;
+      if(q?.capLabel){
+        c.cap = q.capLabel;
+        markFresh(c,'cap');
+      }else{
+        const capLbl = fmtCapLabel(q?.marketCap);
+        if(capLbl){
+          c.cap = capLbl;
+          markFresh(c,'cap');
+        }
+      }
+    });
 
-    const p   = toNumOrNull(item.current_price);
-    const cap = toNumOrNull(item.market_cap);
-    const ath = toNumOrNull(item.ath);
-    const atl = toNumOrNull(item.atl);
+    const setTickerFromCmc=(sym,priceKey,chgKey,round=false)=>{
+      const q = cmcQuotes[sym];
+      const p = toNumOrNull(q?.price);
+      const ch = toNumOrNull(q?.percentChange24h);
+      if(p==null) return false;
+      mkt[priceKey] = round ? Math.round(p) : p;
+      if(ch!=null) mkt[chgKey] = +ch.toFixed(2);
+      return true;
+    };
+    cmcTicker.BTC = setTickerFromCmc('BTC','btcPrice','btcChg',false);
+    cmcTicker.ETH = setTickerFromCmc('ETH','ethPrice','ethChg',true);
+    cmcTicker.BNB = setTickerFromCmc('BNB','bnbPrice','bnbChg',true);
+    cmcTicker.SOL = setTickerFromCmc('SOL','solPrice','solChg',true);
+  }catch(eCmc){
+    meta.cmc.error = String(eCmc?.message||eCmc);
+  }
 
-    if(p==null || p<=0){
-      meta.invalidRows++;
-      markStale(c,'price','invalid_price');
-      return;
-    }
+  try{
+    const url = `${CG}/coins/markets?vs_currency=usd&ids=${allIds.join(',')}`
+              + `&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=24h`;
+    const list = await fetchJSON(url, { retries:2, baseDelayMs:450 });
+    if(!Array.isArray(list)) throw new Error('Unexpected markets payload');
+    meta.received = list.length;
+    const returnedIds = new Set(list.map(x=>x?.id).filter(Boolean));
+    meta.missingIds = portfolioIds.filter(id=>!returnedIds.has(id));
 
-    c.price = p;
-    markFresh(c,'price');
-    meta.updated++;
+    const byId = {};
+    list.forEach(item => { if(item?.id) byId[item.id] = item; });
 
-    // ATH — always update from API (real, not manual)
-    if(ath && ath > 0){
-      c.ath    = ath;
-      c.athPct = +((ath - p) / ath * 100).toFixed(1);
-      mkt.athUpdated = new Date().toLocaleDateString('en',{month:'short',day:'numeric'});
-      markFresh(c,'ath');
-    } else if(c.ath > 0){
-      c.athPct = +((c.ath - p) / c.ath * 100).toFixed(1);
-      markStale(c,'ath','missing_ath_from_api');
-    }
+    coins.forEach(c=>{
+      const id   = CG_IDS[c.coin];
+      const item = id ? byId[id] : null;
+      const hasCmcPrice = Number.isFinite(toNumOrNull(cmcQuotes?.[c.coin]?.price)) && toNumOrNull(cmcQuotes?.[c.coin]?.price) > 0;
+      const hasCmcCap = !!cmcQuotes?.[c.coin]?.capLabel || Number.isFinite(toNumOrNull(cmcQuotes?.[c.coin]?.marketCap));
+      if(!item){
+        if(!hasCmcPrice) markStale(c,'price','missing_market_item');
+        return;
+      }
 
-    // Last Low (ATL) — update from API
-    if(atl && atl > 0){
-      c.lastLow = atl;
-      c.lowPct  = +((p - atl) / atl * 100).toFixed(1);
-      markFresh(c,'atl');
-    } else if(c.lastLow > 0){
-      c.lowPct  = +((p - c.lastLow) / c.lastLow * 100).toFixed(1);
-      markStale(c,'atl','missing_atl_from_api');
-    }
+      const p   = toNumOrNull(item.current_price);
+      const cap = toNumOrNull(item.market_cap);
+      const ath = toNumOrNull(item.ath);
+      const atl = toNumOrNull(item.atl);
 
-    // % vs PWL
-    c.perf = c.pwl > 0 ? +((p - c.pwl) / c.pwl * 100).toFixed(1) : c.perf;
+      if((p==null || p<=0) && !hasCmcPrice){
+        meta.invalidRows++;
+        markStale(c,'price','invalid_price');
+        return;
+      }
 
-    // Market cap
-    if(cap && cap>0){
-      c.cap = cap >= 1e9
-        ? '$' + (cap / 1e9).toFixed(2) + 'B'
-        : '$' + (cap / 1e6).toFixed(0) + 'M';
-      markFresh(c,'cap');
-    }
-  });
+      if(!hasCmcPrice && p!=null && p>0){
+        c.price = p;
+        markFresh(c,'price');
+        meta.updated++;
+        meta.cg.priceFallback++;
+        c.perf = c.pwl > 0 ? +((p - c.pwl) / c.pwl * 100).toFixed(1) : c.perf;
+      }
 
-  // Update ticker from same response
-  const bySymbol = {
-    bitcoin: byId['bitcoin'], ethereum: byId['ethereum'],
-    binancecoin: byId['binancecoin'], solana: byId['solana'],
-  };
-  const b=bySymbol.bitcoin, e=bySymbol.ethereum,
-        bn=bySymbol.binancecoin, s=bySymbol.solana;
-  if(b && toNumOrNull(b.current_price)!=null)  { mkt.btcPrice = b.current_price; mkt.btcChg = +(b.price_change_percentage_24h||0).toFixed(2); }
-  if(e && toNumOrNull(e.current_price)!=null)  { mkt.ethPrice = Math.round(e.current_price); mkt.ethChg = +(e.price_change_percentage_24h||0).toFixed(2); }
-  if(bn && toNumOrNull(bn.current_price)!=null) { mkt.bnbPrice = Math.round(bn.current_price); mkt.bnbChg = +(bn.price_change_percentage_24h||0).toFixed(2); }
-  if(s && toNumOrNull(s.current_price)!=null)  { mkt.solPrice = Math.round(s.current_price); mkt.solChg = +(s.price_change_percentage_24h||0).toFixed(2); }
+      if(!hasCmcCap && cap && cap>0){
+        const capLabel = fmtCapLabel(cap);
+        if(capLabel){
+          c.cap = capLabel;
+          markFresh(c,'cap');
+        }
+      }
+
+      const px = toNumOrNull(c.price) || p;
+      if(px==null || px<=0) return;
+
+      let athAtlTouched = false;
+      if(ath && ath > 0){
+        c.ath    = ath;
+        c.athPct = +((ath - px) / ath * 100).toFixed(1);
+        mkt.athUpdated = new Date().toLocaleDateString('en',{month:'short',day:'numeric'});
+        markFresh(c,'ath');
+        athAtlTouched = true;
+      } else if(c.ath > 0){
+        c.athPct = +((c.ath - px) / c.ath * 100).toFixed(1);
+        markStale(c,'ath','missing_ath_from_api');
+      }
+
+      if(atl && atl > 0){
+        c.lastLow = atl;
+        c.lowPct  = +((px - atl) / atl * 100).toFixed(1);
+        markFresh(c,'atl');
+        athAtlTouched = true;
+      } else if(c.lastLow > 0){
+        c.lowPct  = +((px - c.lastLow) / c.lastLow * 100).toFixed(1);
+        markStale(c,'atl','missing_atl_from_api');
+      }
+      if(athAtlTouched) meta.cg.athAtlUpdated++;
+    });
+
+    const bySym = {
+      bitcoin: byId['bitcoin'], ethereum: byId['ethereum'],
+      binancecoin: byId['binancecoin'], solana: byId['solana'],
+    };
+    const b=bySym.bitcoin, e=bySym.ethereum, bn=bySym.binancecoin, s=bySym.solana;
+    if(!cmcTicker.BTC && b && toNumOrNull(b.current_price)!=null)  { mkt.btcPrice = b.current_price; mkt.btcChg = +(b.price_change_percentage_24h||0).toFixed(2); }
+    if(!cmcTicker.ETH && e && toNumOrNull(e.current_price)!=null)  { mkt.ethPrice = Math.round(e.current_price); mkt.ethChg = +(e.price_change_percentage_24h||0).toFixed(2); }
+    if(!cmcTicker.BNB && bn && toNumOrNull(bn.current_price)!=null) { mkt.bnbPrice = Math.round(bn.current_price); mkt.bnbChg = +(bn.price_change_percentage_24h||0).toFixed(2); }
+    if(!cmcTicker.SOL && s && toNumOrNull(s.current_price)!=null)  { mkt.solPrice = Math.round(s.current_price); mkt.solChg = +(s.price_change_percentage_24h||0).toFixed(2); }
+
+    meta.cg.ok = true;
+  }catch(eCg){
+    meta.cg.error = String(eCg?.message||eCg);
+    if(!meta.cmc.ok) throw eCg;
+  }
   return meta;
 }
 

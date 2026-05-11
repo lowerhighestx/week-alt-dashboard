@@ -91,6 +91,7 @@ const FNG='https://api.alternative.me/fng/?limit=1';
 const ASI_URL='https://www.blockchaincenter.net/altcoin-season-index/';
 const ASI_SNAPSHOT_URL='./data/asi.latest.json';
 const ALT_INDEX_SNAPSHOT_URL='./data/alt-index.latest.json';
+const TOKEN_QUOTES_SNAPSHOT_URL='./data/token-quotes.latest.json';
 const CG_IDS={
   GRASS:'grass', BERA:'berachain-bera', ASTER:'aster-2', HYPE:'hyperliquid', AAVE:'aave', PENGU:'pudgy-penguins',
   ENA:'ethena', PENDLE:'pendle', VIRTUAL:'virtual-protocol', ZRO:'layerzero', TON:'the-open-network', MNT:'mantle',
@@ -276,17 +277,35 @@ async function runLive(){
       out.errors.push('fng failed');
     }
 
-    const tickerIds=['bitcoin','ethereum','binancecoin','solana'];
-    const byId={};
-    (Array.isArray(marketsList)?marketsList:[]).forEach(x=>{if(x?.id)byId[x.id]=x;});
-    const missingTicker=tickerIds.filter(id=>!byId[id]);
-    const invalidTicker=tickerIds.filter(id=>{
-      const it=byId[id];
-      if(!it) return false;
-      return !Number.isFinite(Number(it.current_price)) || !Number.isFinite(Number(it.price_change_percentage_24h));
-    });
+    let tickerFrom='coingecko_markets';
+    let missingTicker=[], invalidTicker=[];
+    try{
+      const tqRes = await fetch(`${TOKEN_QUOTES_SNAPSHOT_URL}?v=${Date.now()}`, { headers:{Accept:'application/json'} });
+      if(!tqRes.ok) throw new Error(`HTTP ${tqRes.status}`);
+      const tq = await tqRes.json();
+      const q = tq?.quotes || {};
+      tickerFrom='cmc_snapshot';
+      const tickerSyms=['BTC','ETH','BNB','SOL'];
+      missingTicker = tickerSyms.filter(s=>!q[s]);
+      invalidTicker = tickerSyms.filter(s=>{
+        const it=q[s];
+        if(!it) return false;
+        return !Number.isFinite(Number(it.price)) || !Number.isFinite(Number(it.percentChange24h));
+      });
+    }catch(eTickerSnap){
+      const tickerIds=['bitcoin','ethereum','binancecoin','solana'];
+      const byId={};
+      (Array.isArray(marketsList)?marketsList:[]).forEach(x=>{if(x?.id)byId[x.id]=x;});
+      missingTicker=tickerIds.filter(id=>!byId[id]);
+      invalidTicker=tickerIds.filter(id=>{
+        const it=byId[id];
+        if(!it) return false;
+        return !Number.isFinite(Number(it.current_price)) || !Number.isFinite(Number(it.price_change_percentage_24h));
+      });
+      tickerFrom='coingecko_markets_fallback';
+    }
     out.widgets = {
-      ticker: { ok: missingTicker.length===0 && invalidTicker.length===0, missingTicker, invalidTicker },
+      ticker: { ok: missingTicker.length===0 && invalidTicker.length===0, missingTicker, invalidTicker, source:tickerFrom },
       dominance: {
         ok: out.global?.ok===true && out.global?.btcDom===true && out.global?.ethDom===true && out.global?.totalMcap===true,
       },

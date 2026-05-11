@@ -7,6 +7,29 @@ const ASI_URL = 'https://www.blockchaincenter.net/altcoin-season-index/';
 const COINSTATS_URL = 'https://coinstats.app/en/altcoin-season-index/';
 const CMC_BASE = 'https://pro-api.coinmarketcap.com';
 const CMC_KEY = (process.env.CMC_PRO_API_KEY || '').trim();
+const CMC_SLUGS = {
+  GRASS: 'grass',
+  BERA: 'berachain',
+  ASTER: 'aster',
+  HYPE: 'hyperliquid',
+  AAVE: 'aave',
+  PENGU: 'pudgy-penguins',
+  ENA: 'ethena',
+  PENDLE: 'pendle',
+  VIRTUAL: 'virtual-protocol',
+  ZRO: 'layerzero',
+  TON: 'toncoin',
+  MNT: 'mantle',
+  AERO: 'aerodrome-finance',
+  MET: 'meteora',
+  PUMP: 'pump-fun',
+  ARB: 'arbitrum',
+  INJ: 'injective',
+  SOL: 'solana',
+  BTC: 'bitcoin',
+  ETH: 'ethereum',
+  BNB: 'bnb',
+};
 
 function requestText(url, { headers = {}, depth = 0 } = {}) {
   return new Promise((resolve, reject) => {
@@ -71,6 +94,12 @@ function ensureSeriesLen(series, minLen = 2) {
   if (!Array.isArray(series) || !series.length) return [50, 50];
   if (series.length === 1) return [series[0], series[0]];
   return series;
+}
+
+function formatCapUsd(cap) {
+  if (!Number.isFinite(cap) || cap <= 0) return null;
+  if (cap >= 1e9) return `$${(cap / 1e9).toFixed(2)}B`;
+  return `$${Math.round(cap / 1e6)}M`;
 }
 
 function fmtDate(isoDate) {
@@ -206,6 +235,56 @@ async function fetchCmcSnapshots(apiKey) {
   return { asi, chart };
 }
 
+async function fetchCmcTokenQuotes(apiKey) {
+  const headers = { 'X-CMC_PRO_API_KEY': apiKey };
+  const entries = Object.entries(CMC_SLUGS);
+  const slugList = [...new Set(entries.map(([, slug]) => slug))];
+  const slugParam = slugList.map(s => encodeURIComponent(s)).join(',');
+  const data = await requestJson(`${CMC_BASE}/v2/cryptocurrency/quotes/latest?slug=${slugParam}`, { headers });
+  if (Number(data?.status?.error_code || 0) !== 0) {
+    throw new Error(`CMC token quotes error: ${data?.status?.error_message || data?.status?.error_code}`);
+  }
+
+  const rows = Object.values(data?.data || {});
+  const bySlug = {};
+  rows.forEach((r) => {
+    if (r?.slug && !bySlug[r.slug]) bySlug[r.slug] = r;
+  });
+
+  const quotes = {};
+  const missing = [];
+  for (const [symbol, slug] of entries) {
+    const row = bySlug[slug];
+    const q = row?.quote?.USD || {};
+    const price = Number(q.price);
+    const marketCap = Number(q.market_cap);
+    const pct24h = Number(q.percent_change_24h);
+    if (!row || !Number.isFinite(price)) {
+      missing.push(symbol);
+      continue;
+    }
+    quotes[symbol] = {
+      symbol,
+      slug,
+      id: Number(row.id || 0),
+      price,
+      marketCap: Number.isFinite(marketCap) ? marketCap : null,
+      capLabel: formatCapUsd(marketCap),
+      percentChange24h: Number.isFinite(pct24h) ? pct24h : null,
+      lastUpdated: String(q.last_updated || row.last_updated || ''),
+    };
+  }
+
+  return {
+    provider: 'cmc_pro_api',
+    sourceUrl: `${CMC_BASE}/v2/cryptocurrency/quotes/latest`,
+    fetchedAt: new Date().toISOString(),
+    quotes,
+    missingSymbols: missing,
+    symbols: Object.keys(quotes),
+  };
+}
+
 async function fetchBlockchainCenterBundle() {
   const html = await requestText(ASI_URL);
   const latestObj = JSON.parse(extractJsonObjectByMarker(html, '"latestScores":'));
@@ -300,16 +379,31 @@ async function readExistingChartSnapshot() {
   return null;
 }
 
+async function readExistingTokenSnapshot() {
+  try {
+    const raw = await readFile('data/token-quotes.latest.json', 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.quotes && typeof parsed.quotes === 'object') return parsed;
+  } catch (e) {}
+  return null;
+}
+
 async function main() {
   const providerErrors = [];
   let asiSnapshot = null;
   let chartSnapshot = null;
+  let tokenQuotesSnapshot = null;
 
   if (CMC_KEY) {
     try {
       const cmc = await fetchCmcSnapshots(CMC_KEY);
       asiSnapshot = cmc.asi;
       chartSnapshot = cmc.chart;
+      try {
+        tokenQuotesSnapshot = await fetchCmcTokenQuotes(CMC_KEY);
+      } catch (eTok) {
+        providerErrors.push(`cmc_token_quotes:${String(eTok?.message || eTok)}`);
+      }
     } catch (e) {
       providerErrors.push(`cmc:${String(e?.message || e)}`);
     }
@@ -361,21 +455,45 @@ async function main() {
     }
   }
 
+  if (!tokenQuotesSnapshot) {
+    const existingToken = await readExistingTokenSnapshot();
+    if (existingToken) {
+      tokenQuotesSnapshot = {
+        ...existingToken,
+        providerErrors: [...(existingToken.providerErrors || []), ...providerErrors],
+        retainedFromPreviousRun: true,
+      };
+    } else {
+      tokenQuotesSnapshot = {
+        provider: 'fallback_empty',
+        sourceUrl: '',
+        fetchedAt: new Date().toISOString(),
+        quotes: {},
+        missingSymbols: Object.keys(CMC_SLUGS),
+        symbols: [],
+        note: 'No CMC token quotes available yet.',
+      };
+    }
+  }
+
   asiSnapshot.providersTried = ['cmc_pro_api', 'blockchaincenter', 'coinstats'];
   asiSnapshot.providerErrors = providerErrors;
   chartSnapshot.providersTried = ['cmc_pro_api', 'blockchaincenter'];
   chartSnapshot.providerErrors = providerErrors;
+  tokenQuotesSnapshot.providersTried = ['cmc_pro_api'];
+  tokenQuotesSnapshot.providerErrors = providerErrors;
 
   await mkdir('data', { recursive: true });
   await writeFile('data/asi.latest.json', JSON.stringify(asiSnapshot, null, 2) + '\n', 'utf8');
   await writeFile('data/alt-index.latest.json', JSON.stringify(chartSnapshot, null, 2) + '\n', 'utf8');
+  await writeFile('data/token-quotes.latest.json', JSON.stringify(tokenQuotesSnapshot, null, 2) + '\n', 'utf8');
 
   console.log(`ASI snapshot updated: provider=${asiSnapshot.provider}, value=${asiSnapshot.value}, at=${asiSnapshot.fetchedAt}`);
   console.log(`Chart snapshot updated: provider=${chartSnapshot.provider}, points=${chartSnapshot.points}, latest=${chartSnapshot.latestValue}`);
+  console.log(`Token quotes snapshot updated: provider=${tokenQuotesSnapshot.provider}, symbols=${tokenQuotesSnapshot.symbols?.length || 0}`);
 }
 
 main().catch((e) => {
   console.error(e?.stack || e?.message || String(e));
   process.exit(1);
 });
-

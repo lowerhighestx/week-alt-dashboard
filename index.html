@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>👀 WEEK ALT</title>
+<title>WEEK ALT</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%91%80%3C/text%3E%3C/svg%3E"/>
 <style>
 :root{--bg:#0b0d10;--bg2:#111318;--bg3:#0d0f13;--border:#1e2530;--amber:#f59e0b;--green:#22c55e;--red:#ef4444;--blue:#60a5fa;--purple:#a78bfa;--text:#e2e8f0;--dim:#475569;--pale:#94a3b8}
@@ -186,10 +186,9 @@ th.drag-source{opacity:.4}
 </head>
 <body>
 
-<div id="ticker"></div>
 <div id="app">
   <div class="header">
-    <div><span class="logo">👀 WEEK ALT </span><span class="logo-sub">v2.0 PRO</span></div>
+    <div><span class="logo">WEEK ALT </span><span class="logo-sub">v2.0 PRO</span></div>
     <div><span id="live-date" style="color:#334155;font-size:10px"></span></div>
     <div class="header-right">
       <span class="autosave">auto-save ✓</span>
@@ -671,16 +670,22 @@ function drawGauge(canvas,value,label='Neutral'){
   ctx.lineCap='round';
   ctx.stroke();
 
-  // Pointer ring
-  const px=cx+Math.cos(ang)*(R+1.4);
-  const py=cy+Math.sin(ang)*(R+1.4);
+  // Pointer marker (dark ring + colored center)
+  const px=cx+Math.cos(ang)*(R+1.2);
+  const py=cy+Math.sin(ang)*(R+1.2);
+  const outerR=9.4;
+  const innerR=4.9;
   ctx.beginPath();
-  ctx.arc(px,py,7.2,0,Math.PI*2);
-  ctx.fillStyle=pointerColor;
+  ctx.arc(px,py,outerR,0,Math.PI*2);
+  ctx.fillStyle='#030712';
   ctx.fill();
-  ctx.lineWidth=2.8;
+  ctx.lineWidth=1.5;
   ctx.strokeStyle='#1c2530';
   ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(px,py,innerR,0,Math.PI*2);
+  ctx.fillStyle=pointerColor;
+  ctx.fill();
 
   // Center value
   ctx.fillStyle='#f8fafc';
@@ -715,6 +720,7 @@ function span(cls,txt){const s=document.createElement('span');s.className=cls;s.
 /* ── TICKER ── */
 function renderTicker(){
   const t=document.getElementById('ticker');
+  if(!t) return;
   t.innerHTML='';
   const fmtMcap=v=>{if(!v)return'—';if(v>=1e12)return'$'+(v/1e12).toFixed(2)+'T';return'$'+(v/1e9).toFixed(0)+'B';};
   const items=[

@@ -190,7 +190,7 @@ function renderSaved(){
       ['F&G widget fields', fngOk?'ok':'issue', fngOk?'ok':'warn'],
       ['Chart widget source', chartOk?'ok':'issue', chartOk?'ok':'warn'],
       ['Chart points (30d)', String(c.points?.['30d']||0), Number(c.points?.['30d']||0)>=2?'ok':'warn'],
-      ['ASI source', asiSrc, asiSrc==='blockchaincenter_live'?'ok':'warn'],
+      ['ASI source', asiSrc, asiSrc==='cmc_api'?'ok':'warn'],
       ['ASI value', String(asi.value ?? '—'), Number.isFinite(Number(asi.value))?'ok':'warn'],
       ['ASI error', asi.error || '—', asi.error?'bad':''],
     ]);
@@ -360,43 +360,26 @@ async function runLive(){
       const snapRes = await fetch(`${ASI_SNAPSHOT_URL}?v=${Date.now()}`,{headers:{Accept:'application/json'}});
       if(!snapRes.ok) throw new Error(`HTTP ${snapRes.status}`);
       const snap = await snapRes.json();
+      const provider = String(snap?.provider||'').toLowerCase();
       const v = Number(snap?.value);
       const points = Number(snap?.points||0);
       out.widgets.asi = {
-        ok: Number.isFinite(v) && points>=2,
-        source:'snapshot_json',
+        ok: Number.isFinite(v) && points>=2 && provider==='cmc_pro_api',
+        source: provider==='cmc_pro_api' ? 'cmc_api' : `snapshot_${provider||'unknown'}`,
         value: Number.isFinite(v)?v:null,
         points,
         error: null,
       };
       if(!out.widgets.asi.ok) out.errors.push('asi widget source data invalid');
     }catch(eSnap){
-      try{
-        const asiRes = await fetch(ASI_URL,{headers:{Accept:'text/html'}});
-        if(!asiRes.ok) throw new Error(`HTTP ${asiRes.status}`);
-        const html = await asiRes.text();
-        const latest = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
-        const score = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
-        const v = Number(latest?.['90']);
-        const points = Object.keys(score?.['90']||{}).length;
-        out.widgets.asi = {
-          ok: Number.isFinite(v) && points>=2,
-          source:'blockchaincenter_live',
-          value: Number.isFinite(v)?v:null,
-          points,
-          error: null,
-        };
-        if(!out.widgets.asi.ok) out.errors.push('asi widget source data invalid');
-      }catch(eLive){
-        out.widgets.asi = {
-          ok:false,
-          source:'snapshot_or_live_failed',
-          value:null,
-          points:0,
-          error:`snapshot:${String(eSnap?.message||eSnap)} | live:${String(eLive?.message||eLive)}`,
-        };
-        out.errors.push('asi widget source data invalid');
-      }
+      out.widgets.asi = {
+        ok:false,
+        source:'cmc_snapshot_failed',
+        value:null,
+        points:0,
+        error:`snapshot:${String(eSnap?.message||eSnap)}`,
+      };
+      out.errors.push('asi widget source data invalid');
     }
 
     const critical = [out.markets?.ok, out.global?.ok, out.fng?.ok].filter(Boolean).length;

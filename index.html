@@ -306,7 +306,7 @@ function genLine(n,base,vol){let v=base;const r=[];for(let i=0;i<n;i++){v=Math.m
 const CHART_TFS=['7d','30d','90d'];
 const CHART_DAYS={ '7d':7, '30d':30, '90d':90 };
 const CHART_CACHE_KEY='altdash_chart_v1';
-let chartTF='30d';
+let chartTF='90d';
 let chartData={
   '7d':genLine(7,42,4),
   '30d':genLine(30,45,3),
@@ -530,6 +530,24 @@ function drawLine(canvas,data,color='#f59e0b'){
   const px=i=>PAD.left+i/(data.length-1)*cw;
   const py=v=>PAD.top+ch-(v-mn)/range*ch;
 
+  // ── subtle Sunday separators (vertical dashed ticks)
+  for(let i=0;i<data.length;i++){
+    const d=new Date();
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate()-(data.length-1-i));
+    if(d.getDay()===0){
+      const x=px(i);
+      ctx.beginPath();
+      ctx.moveTo(x,PAD.top);
+      ctx.lineTo(x,PAD.top+ch);
+      ctx.strokeStyle='#223043';
+      ctx.lineWidth=0.6;
+      ctx.setLineDash([2,4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
   // ── grid lines + Y labels
   const yTicks=4;
   for(let i=0;i<=yTicks;i++){
@@ -601,11 +619,11 @@ function drawGauge(canvas,value,label='Neutral'){
   ctx.clearRect(0,0,W,H);
 
   const v=Math.max(0,Math.min(100,Number(value)||0));
-  const cx=W/2, cy=96;
-  const rx=78, ry=64;
+  const cx=W/2, cy=108;
+  const R=70;
   const lw=14;
-  const start=Math.PI*0.86;
-  const end=Math.PI*2.14;
+  const start=Math.PI;
+  const end=0;
   const span=end-start;
   const ang=start+span*(v/100);
   const lblColor=v<25?'#f87171':v<50?'#fbbf24':v<75?'#fde047':'#4ade80';
@@ -634,28 +652,28 @@ function drawGauge(canvas,value,label='Neutral'){
 
   // Base track
   ctx.beginPath();
-  ctx.ellipse(cx,cy,rx,ry,0,start,end,false);
+  ctx.arc(cx,cy,R,start,end,false);
   ctx.strokeStyle='#172030';
   ctx.lineWidth=lw+1.5;
   ctx.lineCap='round';
   ctx.stroke();
 
   // Gradient ring
-  const grad=ctx.createLinearGradient(cx-rx,cy,cx+rx,cy);
+  const grad=ctx.createLinearGradient(cx-R,cy,cx+R,cy);
   grad.addColorStop(0,'#f87171');
   grad.addColorStop(0.34,'#fb923c');
   grad.addColorStop(0.6,'#fde047');
   grad.addColorStop(1,'#4ade80');
   ctx.beginPath();
-  ctx.ellipse(cx,cy,rx,ry,0,start,end,false);
+  ctx.arc(cx,cy,R,start,end,false);
   ctx.strokeStyle=grad;
   ctx.lineWidth=lw;
   ctx.lineCap='round';
   ctx.stroke();
 
   // Pointer ring
-  const px=cx+Math.cos(ang)*(rx+1.4);
-  const py=cy+Math.sin(ang)*(ry+1.4);
+  const px=cx+Math.cos(ang)*(R+1.4);
+  const py=cy+Math.sin(ang)*(R+1.4);
   ctx.beginPath();
   ctx.arc(px,py,7.2,0,Math.PI*2);
   ctx.fillStyle=pointerColor;
@@ -669,12 +687,12 @@ function drawGauge(canvas,value,label='Neutral'){
   ctx.font='700 46px "Segoe UI",system-ui,sans-serif';
   ctx.textAlign='center';
   ctx.textBaseline='middle';
-  ctx.fillText(String(Math.round(v)),cx,76);
+  ctx.fillText(String(Math.round(v)),cx,80);
 
   // Center label
   ctx.fillStyle=lblColor;
   ctx.font='700 12px "Segoe UI",system-ui,sans-serif';
-  ctx.fillText(label||'Neutral',cx,102);
+  ctx.fillText(label||'Neutral',cx,106);
 }
 
 /* ── RENDER HELPERS ── */
@@ -761,8 +779,8 @@ function renderASIWidget(){
   const val = Math.max(0,Math.min(100, Number(asiState.value)||0));
   const label = asiState.label || (val>=75?'Altcoin Season':'Bitcoin Season');
   const labelColor = val>=75 ? '#22c55e' : '#f59e0b';
-  const sourceLbl = (asiState.source==='blockchaincenter_live' || asiState.source==='snapshot_json' || asiState.source==='cmc_api')
-    ? 'API'
+  const sourceLbl = (asiState.source==='cmc_api')
+    ? 'CMC'
     : (asiState.error ? 'Fallback' : 'Local');
   w.innerHTML=`
     <div class="wt">Altcoin Season Index (${sourceLbl})</div>
@@ -1443,6 +1461,7 @@ const ASI_URL = 'https://www.blockchaincenter.net/altcoin-season-index/';
 const ASI_SNAPSHOT_URL = './data/asi.latest.json';
 const ALT_INDEX_SNAPSHOT_URL = './data/alt-index.latest.json';
 const TOKEN_QUOTES_SNAPSHOT_URL = './data/token-quotes.latest.json';
+const MARKET_SNAPSHOT_URL = './data/market.latest.json';
 
 async function fetchWithRetry(url, options={}, cfg={}){
   const retries = cfg.retries ?? 2;
@@ -1631,6 +1650,31 @@ function parseTokenQuotesSnapshot(payload){
   };
 }
 
+function parseMarketSnapshot(payload){
+  if(!payload || typeof payload!=='object') throw new Error('Market snapshot invalid payload');
+  const btcDom = Number(payload.btcDom);
+  const ethDom = Number(payload.ethDom);
+  const otherDomRaw = Number(payload.otherDom);
+  const totalMcap = Number(payload.totalMcap);
+  const btcDomChg = Number(payload.btcDomChg);
+  const ethDomChg = Number(payload.ethDomChg);
+  const otherDomChgRaw = Number(payload.otherDomChg);
+  if(!Number.isFinite(btcDom) || !Number.isFinite(ethDom)) throw new Error('Market snapshot dominance fields missing');
+  const otherDom = Number.isFinite(otherDomRaw) ? otherDomRaw : (100 - btcDom - ethDom);
+  const otherDomChg = Number.isFinite(otherDomChgRaw)
+    ? otherDomChgRaw
+    : (Number.isFinite(btcDomChg) && Number.isFinite(ethDomChg) ? -(btcDomChg + ethDomChg) : 0);
+  return {
+    provider: String(payload.provider||'snapshot_json'),
+    fetchedAt: payload.fetchedAt || payload.lastUpdated || new Date().toISOString(),
+    btcDom, ethDom, otherDom,
+    btcDomChg: Number.isFinite(btcDomChg) ? btcDomChg : 0,
+    ethDomChg: Number.isFinite(ethDomChg) ? ethDomChg : 0,
+    otherDomChg,
+    totalMcap: Number.isFinite(totalMcap) ? totalMcap : null,
+  };
+}
+
 function parseAsiLiveHtml(html){
   const latestObj = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
   const scoreObj = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
@@ -1675,7 +1719,9 @@ async function fetchASIData(){
   const errors = [];
   try{
     const snap = await fetchJSON(`${ASI_SNAPSHOT_URL}?v=${Date.now()}`, { retries:1, baseDelayMs:250, retryableStatuses:[500,502,503,504] });
-    asiState = { ...asiState, ...parseAsiSnapshot(snap) };
+    const parsed = parseAsiSnapshot(snap);
+    if(parsed.source!=='cmc_api') throw new Error(`ASI provider is not CMC (${snap?.provider||'unknown'})`);
+    asiState = { ...asiState, ...parsed };
     renderASIWidget();
     return {
       ok:true,
@@ -1686,28 +1732,13 @@ async function fetchASIData(){
     };
   }catch(e1){
     errors.push(`snapshot:${String(e1?.message||e1)}`);
-    try{
-      const html = await fetchText(ASI_URL, { retries:2, baseDelayMs:600 });
-      const parsed = parseAsiLiveHtml(html);
-      asiState = { ...asiState, ...parsed.state };
-      renderASIWidget();
-      return {
-        ok:true,
-        value: asiState.value,
-        source: asiState.source,
-        lastUpdated: asiState.lastUpdated,
-        points: parsed.points,
-      };
-    }catch(e2){
-      errors.push(`live:${String(e2?.message||e2)}`);
-      asiState = {
-        ...asiState,
-        source: asiState.lastUpdated ? asiState.source : 'mock_fallback',
-        error: errors.join(' | '),
-      };
-      renderASIWidget();
-      throw new Error(asiState.error || 'asi_fetch_failed');
-    }
+    asiState = {
+      ...asiState,
+      source: asiState.lastUpdated ? asiState.source : 'mock_fallback',
+      error: errors.join(' | '),
+    };
+    renderASIWidget();
+    throw new Error(asiState.error || 'asi_fetch_failed');
   }
 }
 
@@ -1874,23 +1905,35 @@ async function fetchAllPrices(){
 }
 
 async function fetchGlobal(){
-  const data = await fetchJSON(`${CG}/global`, { retries:2, baseDelayMs:450 });
-  const d    = data.data;
-  if(!d) throw new Error('Unexpected global payload');
-  const pct  = d.market_cap_percentage || {};
-  const btcDom = toNumOrNull(pct.btc);
-  const ethDom = toNumOrNull(pct.eth);
-  mkt.btcDom    = +((btcDom ?? 60)).toFixed(2);
-  mkt.ethDom    = +((ethDom ?? 10.8)).toFixed(2);
-  mkt.otherDom  = +(100 - mkt.btcDom - mkt.ethDom).toFixed(2);
-  const totalMcap = toNumOrNull(d.total_market_cap?.usd);
-  if(totalMcap && totalMcap>0) mkt.totalMcap = totalMcap;
-  // Approximate 24h dom change from total market change
-  const chg = toNumOrNull(d.market_cap_change_percentage_24h_usd) || 0;
-  mkt.btcDomChg   = +(chg *  0.60).toFixed(2);
-  mkt.ethDomChg   = +(chg *  0.10).toFixed(2);
-  mkt.otherDomChg = +(chg * -0.30).toFixed(2);
-  return { ok:true, totalMcap: mkt.totalMcap };
+  try{
+    const snapRaw = await fetchJSON(`${MARKET_SNAPSHOT_URL}?v=${Date.now()}`, { retries:1, baseDelayMs:250, retryableStatuses:[500,502,503,504] });
+    const snap = parseMarketSnapshot(snapRaw);
+    mkt.btcDom = +snap.btcDom.toFixed(2);
+    mkt.ethDom = +snap.ethDom.toFixed(2);
+    mkt.otherDom = +snap.otherDom.toFixed(2);
+    mkt.btcDomChg = +snap.btcDomChg.toFixed(2);
+    mkt.ethDomChg = +snap.ethDomChg.toFixed(2);
+    mkt.otherDomChg = +snap.otherDomChg.toFixed(2);
+    if(Number.isFinite(snap.totalMcap) && snap.totalMcap>0) mkt.totalMcap = snap.totalMcap;
+    return { ok:true, totalMcap: mkt.totalMcap, source:'cmc_snapshot', fetchedAt:snap.fetchedAt };
+  }catch(eSnap){
+    const data = await fetchJSON(`${CG}/global`, { retries:2, baseDelayMs:450 });
+    const d    = data.data;
+    if(!d) throw new Error('Unexpected global payload');
+    const pct  = d.market_cap_percentage || {};
+    const btcDom = toNumOrNull(pct.btc);
+    const ethDom = toNumOrNull(pct.eth);
+    mkt.btcDom    = +((btcDom ?? 60)).toFixed(2);
+    mkt.ethDom    = +((ethDom ?? 10.8)).toFixed(2);
+    mkt.otherDom  = +(100 - mkt.btcDom - mkt.ethDom).toFixed(2);
+    const totalMcap = toNumOrNull(d.total_market_cap?.usd);
+    if(totalMcap && totalMcap>0) mkt.totalMcap = totalMcap;
+    const chg = toNumOrNull(d.market_cap_change_percentage_24h_usd) || 0;
+    mkt.btcDomChg   = +(chg *  0.60).toFixed(2);
+    mkt.ethDomChg   = +(chg *  0.10).toFixed(2);
+    mkt.otherDomChg = +(chg * -0.30).toFixed(2);
+    return { ok:true, totalMcap: mkt.totalMcap, source:'coingecko_fallback', error:String(eSnap?.message||eSnap) };
+  }
 }
 
 async function fetchFearGreed(){

@@ -1,13 +1,13 @@
 {
   "provider": "cmc_pro_api",
   "sourceUrl": "https://pro-api.coinmarketcap.com/v1/altcoin-season-index/latest",
-  "fetchedAt": "2026-05-12T13:03:37.174Z",
-  "value": 50,
-  "yesterday": 50,
-  "prevWeek": 39,
-  "prevMonth": 36,
-  "monthScore": 36,
-  "yearScore": 50,
+  "fetchedAt": "2026-05-18T20:17:46.320Z",
+  "value": 32,
+  "yesterday": 31,
+  "prevWeek": 50,
+  "prevMonth": 34,
+  "monthScore": 34,
+  "yearScore": 32,
   "label": "Bitcoin Season",
   "yHigh": {
     "value": 78,
@@ -22,9 +22,7 @@
   "points": 90,
   "note": "CMC Top-100 methodology",
   "providersTried": [
-    "cmc_pro_api",
-    "blockchaincenter",
-    "coinstats"
+    "cmc_pro_api"
   ],
   "providerErrors": []
 }

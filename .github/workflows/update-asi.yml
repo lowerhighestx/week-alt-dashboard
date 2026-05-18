@@ -27,12 +27,12 @@ jobs:
 
       - name: Commit and push if changed
         run: |
-          if git diff --quiet -- data/asi.latest.json data/alt-index.latest.json data/token-quotes.latest.json; then
+          if git diff --quiet -- data/asi.latest.json data/alt-index.latest.json data/token-quotes.latest.json data/market.latest.json; then
             echo "No ASI changes."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/asi.latest.json data/alt-index.latest.json data/token-quotes.latest.json
-          git commit -m "chore(data): update ASI + chart + token quote snapshots"
+          git add data/asi.latest.json data/alt-index.latest.json data/token-quotes.latest.json data/market.latest.json
+          git commit -m "chore(data): update ASI + chart + token + market snapshots"
           git push

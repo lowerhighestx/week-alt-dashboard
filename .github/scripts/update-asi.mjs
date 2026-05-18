@@ -285,6 +285,44 @@ async function fetchCmcTokenQuotes(apiKey) {
   };
 }
 
+async function fetchCmcMarketSnapshot(apiKey) {
+  const headers = { 'X-CMC_PRO_API_KEY': apiKey };
+  const r = await requestJson(`${CMC_BASE}/v1/global-metrics/quotes/latest`, { headers });
+  if (Number(r?.status?.error_code || 0) !== 0) {
+    throw new Error(`CMC global metrics error: ${r?.status?.error_message || r?.status?.error_code}`);
+  }
+  const d = r?.data || {};
+  const q = d?.quote?.USD || {};
+  const btcDom = Number(d.btc_dominance);
+  const ethDom = Number(d.eth_dominance);
+  const btcDomY = Number(d.btc_dominance_yesterday);
+  const ethDomY = Number(d.eth_dominance_yesterday);
+  const otherDom = Number.isFinite(btcDom) && Number.isFinite(ethDom) ? (100 - btcDom - ethDom) : NaN;
+  const otherDomY = Number.isFinite(btcDomY) && Number.isFinite(ethDomY) ? (100 - btcDomY - ethDomY) : NaN;
+  const btcDomChg = Number.isFinite(btcDom) && Number.isFinite(btcDomY) ? (btcDom - btcDomY) : Number(d.btc_dominance_24h_percentage_change);
+  const ethDomChg = Number.isFinite(ethDom) && Number.isFinite(ethDomY) ? (ethDom - ethDomY) : Number(d.eth_dominance_24h_percentage_change);
+  const otherDomChg = Number.isFinite(otherDom) && Number.isFinite(otherDomY) ? (otherDom - otherDomY) : (Number.isFinite(btcDomChg) && Number.isFinite(ethDomChg) ? -(btcDomChg + ethDomChg) : NaN);
+
+  if (!Number.isFinite(btcDom) || !Number.isFinite(ethDom)) {
+    throw new Error('CMC global metrics dominance fields missing');
+  }
+
+  return {
+    provider: 'cmc_pro_api',
+    sourceUrl: `${CMC_BASE}/v1/global-metrics/quotes/latest`,
+    fetchedAt: new Date().toISOString(),
+    btcDom,
+    ethDom,
+    otherDom: Number.isFinite(otherDom) ? otherDom : null,
+    btcDomChg: Number.isFinite(btcDomChg) ? btcDomChg : null,
+    ethDomChg: Number.isFinite(ethDomChg) ? ethDomChg : null,
+    otherDomChg: Number.isFinite(otherDomChg) ? otherDomChg : null,
+    totalMcap: Number(q.total_market_cap),
+    totalMcapChg: Number(q.total_market_cap_yesterday_percentage_change),
+    lastUpdated: d.last_updated || q.last_updated || new Date().toISOString(),
+  };
+}
+
 async function fetchBlockchainCenterBundle() {
   const html = await requestText(ASI_URL);
   const latestObj = JSON.parse(extractJsonObjectByMarker(html, '"latestScores":'));
@@ -388,11 +426,21 @@ async function readExistingTokenSnapshot() {
   return null;
 }
 
+async function readExistingMarketSnapshot() {
+  try {
+    const raw = await readFile('data/market.latest.json', 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && Number.isFinite(Number(parsed.btcDom)) && Number.isFinite(Number(parsed.ethDom))) return parsed;
+  } catch (e) {}
+  return null;
+}
+
 async function main() {
   const providerErrors = [];
   let asiSnapshot = null;
   let chartSnapshot = null;
   let tokenQuotesSnapshot = null;
+  let marketSnapshot = null;
 
   if (CMC_KEY) {
     try {
@@ -404,6 +452,11 @@ async function main() {
       } catch (eTok) {
         providerErrors.push(`cmc_token_quotes:${String(eTok?.message || eTok)}`);
       }
+      try {
+        marketSnapshot = await fetchCmcMarketSnapshot(CMC_KEY);
+      } catch (eMkt) {
+        providerErrors.push(`cmc_market:${String(eMkt?.message || eMkt)}`);
+      }
     } catch (e) {
       providerErrors.push(`cmc:${String(e?.message || e)}`);
     }
@@ -411,26 +464,8 @@ async function main() {
     providerErrors.push('cmc:CMC_PRO_API_KEY is not set');
   }
 
-  if (!asiSnapshot || !chartSnapshot) {
-    try {
-      const bc = await fetchBlockchainCenterBundle();
-      asiSnapshot = asiSnapshot || bc.asi;
-      chartSnapshot = chartSnapshot || bc.chart;
-    } catch (e) {
-      providerErrors.push(`blockchaincenter:${String(e?.message || e)}`);
-    }
-  }
-
   if (!asiSnapshot) {
-    try {
-      asiSnapshot = await fetchCoinStatsAsiOnly();
-    } catch (e) {
-      providerErrors.push(`coinstats:${String(e?.message || e)}`);
-    }
-  }
-
-  if (!asiSnapshot) {
-    throw new Error(`All ASI providers failed: ${providerErrors.join(' | ')}`);
+    throw new Error(`CMC ASI snapshot failed: ${providerErrors.join(' | ')}`);
   }
 
   if (!chartSnapshot) {
@@ -476,21 +511,52 @@ async function main() {
     }
   }
 
-  asiSnapshot.providersTried = ['cmc_pro_api', 'blockchaincenter', 'coinstats'];
+  if (!marketSnapshot) {
+    const existingMarket = await readExistingMarketSnapshot();
+    if (existingMarket) {
+      marketSnapshot = {
+        ...existingMarket,
+        providerErrors: [...(existingMarket.providerErrors || []), ...providerErrors],
+        retainedFromPreviousRun: true,
+      };
+    } else {
+      marketSnapshot = {
+        provider: 'fallback_empty',
+        sourceUrl: '',
+        fetchedAt: new Date().toISOString(),
+        btcDom: null,
+        ethDom: null,
+        otherDom: null,
+        btcDomChg: null,
+        ethDomChg: null,
+        otherDomChg: null,
+        totalMcap: null,
+        totalMcapChg: null,
+        lastUpdated: new Date().toISOString(),
+        note: 'No market snapshot available yet.',
+      };
+    }
+  }
+
+  asiSnapshot.providersTried = ['cmc_pro_api'];
   asiSnapshot.providerErrors = providerErrors;
-  chartSnapshot.providersTried = ['cmc_pro_api', 'blockchaincenter'];
+  chartSnapshot.providersTried = ['cmc_pro_api'];
   chartSnapshot.providerErrors = providerErrors;
   tokenQuotesSnapshot.providersTried = ['cmc_pro_api'];
   tokenQuotesSnapshot.providerErrors = providerErrors;
+  marketSnapshot.providersTried = ['cmc_pro_api'];
+  marketSnapshot.providerErrors = providerErrors;
 
   await mkdir('data', { recursive: true });
   await writeFile('data/asi.latest.json', JSON.stringify(asiSnapshot, null, 2) + '\n', 'utf8');
   await writeFile('data/alt-index.latest.json', JSON.stringify(chartSnapshot, null, 2) + '\n', 'utf8');
   await writeFile('data/token-quotes.latest.json', JSON.stringify(tokenQuotesSnapshot, null, 2) + '\n', 'utf8');
+  await writeFile('data/market.latest.json', JSON.stringify(marketSnapshot, null, 2) + '\n', 'utf8');
 
   console.log(`ASI snapshot updated: provider=${asiSnapshot.provider}, value=${asiSnapshot.value}, at=${asiSnapshot.fetchedAt}`);
   console.log(`Chart snapshot updated: provider=${chartSnapshot.provider}, points=${chartSnapshot.points}, latest=${chartSnapshot.latestValue}`);
   console.log(`Token quotes snapshot updated: provider=${tokenQuotesSnapshot.provider}, symbols=${tokenQuotesSnapshot.symbols?.length || 0}`);
+  console.log(`Market snapshot updated: provider=${marketSnapshot.provider}, btcDom=${marketSnapshot.btcDom}, ethDom=${marketSnapshot.ethDom}`);
 }
 
 main().catch((e) => {

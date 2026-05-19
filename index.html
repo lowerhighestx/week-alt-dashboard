@@ -221,7 +221,7 @@ th.drag-source{opacity:.4}
 const COINS0=[
  {id:1,pri:"🥉",coin:"CFG",trend:"LOW",pos:"RESEARCH",cap:"-",comment:"",thought:"",price:0,buy:0,perf:0,t1:0,t2:0,slPct:30,sl:0,ath:0,athPct:0,lastLow:0,lowPct:0,pwh:0,pwl:0,tag:"DeFi"},
  {id:2,pri:"🥉",coin:"EDGE",trend:"LOW",pos:"RESEARCH",cap:"-",comment:"",thought:"",price:0,buy:0,perf:0,t1:0,t2:0,slPct:30,sl:0,ath:0,athPct:0,lastLow:0,lowPct:0,pwh:0,pwl:0,tag:"L2"},
- {id:3,pri:"🧠",coin:"ASTER",trend:"TOO YOUNG",pos:"SPEC",cap:"$2.80B",comment:"свип PWL, около PWL",thought:"DEX → BNB",price:0.659,buy:1.000,perf:-34,t1:2.000,t2:3.000,slPct:30,sl:0.700,ath:2.410,athPct:73,lastLow:0.403,lowPct:39,pwh:0.750,pwl:0.580,tag:"DEX"},
+ {id:3,pri:"🧠",coin:"ASTER",trend:"TOO YOUNG",pos:"LOOK",cap:"$2.80B",comment:"свип PWL, около PWL",thought:"DEX → BNB",price:0.659,buy:1.000,perf:-34,t1:2.000,t2:3.000,slPct:30,sl:0.700,ath:2.410,athPct:73,lastLow:0.403,lowPct:39,pwh:0.750,pwl:0.580,tag:"DEX"},
  {id:4,pri:"🥇",coin:"HYPE",trend:"MID_UP",pos:"LOOK",cap:"$4.76B",comment:"свип PWL, около PWL",thought:"DEX → нет на биржах",price:41.30,buy:30.286,perf:36,t1:60.571,t2:75.714,slPct:30,sl:21.20,ath:59.48,athPct:31,lastLow:21.20,lowPct:49,pwh:44.5,pwl:33.2,tag:"DEX"},
  {id:5,pri:"🥈",coin:"AAVE",trend:"MID_LOW",pos:"LOOK",cap:"$4.08B",comment:"свип PWL, чуть выше PWL",thought:"DeFi → Lending",price:94.70,buy:115.69,perf:-18,t1:231.37,t2:347.06,slPct:30,sl:80.98,ath:399.98,athPct:76,lastLow:80.98,lowPct:14,pwh:110.0,pwl:82.0,tag:"DeFi"},
  {id:6,pri:"🥈",coin:"PENGU",trend:"MID_LOW",pos:"THINK",cap:"$2.00B",comment:"выше PWH +11%",thought:"MEME",price:0.0088,buy:0.0075,perf:16,t1:0.0151,t2:0.0226,slPct:30,sl:0.0053,ath:0.0563,athPct:84,lastLow:0.0053,lowPct:40,pwh:0.0082,pwl:0.0062,tag:"MEME"},
@@ -402,6 +402,12 @@ function applyPortfolioPreset(){
     if(!c) return;
     if(c.pos!=='RESEARCH'){c.pos='RESEARCH';changed=true;}
     if(!c.trend) c.trend='LOW';
+  });
+  kept.forEach(c=>{
+    if(c.coin==='ASTER' && c.pos!=='LOOK'){
+      c.pos='LOOK';
+      changed=true;
+    }
   });
   const nextCoins=[...kept,...researchOrder.map(sym=>tailMap[sym]).filter(Boolean)];
   if(nextCoins.length!==coins.length) changed=true;

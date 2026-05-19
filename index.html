@@ -99,6 +99,7 @@ tr:hover td{filter:brightness(1.35)}
 .ps-SPEC{background:#200a0a;color:#f87171;padding:2px 8px;border-radius:10px;font-size:10px;display:inline-block}
 .ps-LOOK{background:#0a1c14;color:#34d399;padding:2px 8px;border-radius:10px;font-size:10px;display:inline-block}
 .ps-THINK{background:#0e1020;color:#818cf8;padding:2px 8px;border-radius:10px;font-size:10px;display:inline-block}
+.ps-RESEARCH{background:#1f2009;color:#facc15;padding:2px 8px;border-radius:10px;font-size:10px;display:inline-block}
 .tag{padding:1px 5px;border-radius:3px;font-size:9px;display:inline-block}
 .t-AI{background:#1e1a3a;color:#a78bfa}
 .t-DeFi{background:#0f2922;color:#34d399}
@@ -218,8 +219,8 @@ th.drag-source{opacity:.4}
 
 /* ── DATA ── */
 const COINS0=[
- {id:1,pri:"🧠",coin:"GRASS",trend:"LOW",pos:"SPEC",cap:"$325M",comment:"свип PWH, откат, между PWH и PWL",thought:"AI → нет бнб, но вот вот?",price:0.3581,buy:1.800,perf:-80,t1:3.600,t2:4.500,slPct:30,sl:1.260,ath:3.9623,athPct:91,lastLow:0.1624,lowPct:55,pwh:0.420,pwl:0.290,tag:"AI"},
- {id:2,pri:"🧠",coin:"BERA",trend:"LOW",pos:"SPEC",cap:"$250M",comment:"свип PWL, около PWL",thought:"L1 → TVL + фарм",price:0.392,buy:3.650,perf:-89,t1:7.300,t2:9.125,slPct:30,sl:2.555,ath:15.50,athPct:97,lastLow:0.337,lowPct:14,pwh:0.450,pwl:0.310,tag:"L1"},
+ {id:1,pri:"🥉",coin:"CFG",trend:"LOW",pos:"RESEARCH",cap:"-",comment:"",thought:"",price:0,buy:0,perf:0,t1:0,t2:0,slPct:30,sl:0,ath:0,athPct:0,lastLow:0,lowPct:0,pwh:0,pwl:0,tag:"DeFi"},
+ {id:2,pri:"🥉",coin:"EDGE",trend:"LOW",pos:"RESEARCH",cap:"-",comment:"",thought:"",price:0,buy:0,perf:0,t1:0,t2:0,slPct:30,sl:0,ath:0,athPct:0,lastLow:0,lowPct:0,pwh:0,pwl:0,tag:"L2"},
  {id:3,pri:"🧠",coin:"ASTER",trend:"TOO YOUNG",pos:"SPEC",cap:"$2.80B",comment:"свип PWL, около PWL",thought:"DEX → BNB",price:0.659,buy:1.000,perf:-34,t1:2.000,t2:3.000,slPct:30,sl:0.700,ath:2.410,athPct:73,lastLow:0.403,lowPct:39,pwh:0.750,pwl:0.580,tag:"DEX"},
  {id:4,pri:"🥇",coin:"HYPE",trend:"MID_UP",pos:"LOOK",cap:"$4.76B",comment:"свип PWL, около PWL",thought:"DEX → нет на биржах",price:41.30,buy:30.286,perf:36,t1:60.571,t2:75.714,slPct:30,sl:21.20,ath:59.48,athPct:31,lastLow:21.20,lowPct:49,pwh:44.5,pwl:33.2,tag:"DEX"},
  {id:5,pri:"🥈",coin:"AAVE",trend:"MID_LOW",pos:"LOOK",cap:"$4.08B",comment:"свип PWL, чуть выше PWL",thought:"DeFi → Lending",price:94.70,buy:115.69,perf:-18,t1:231.37,t2:347.06,slPct:30,sl:80.98,ath:399.98,athPct:76,lastLow:80.98,lowPct:14,pwh:110.0,pwl:82.0,tag:"DeFi"},
@@ -233,13 +234,17 @@ const COINS0=[
  {id:13,pri:"🥉",coin:"AERO",trend:"LOW",pos:"THINK",cap:"$1.54B",comment:"рост к PWH",thought:"DEX → сеть BASE",price:0.451,buy:0.3914,perf:15,t1:0.783,t2:1.174,slPct:30,sl:0.274,ath:2.200,athPct:80,lastLow:0.274,lowPct:39,pwh:0.50,pwl:0.36,tag:"DEX"},
  {id:14,pri:"🥉",coin:"MET",trend:"LOW",pos:"THINK",cap:"$125M",comment:"вылет за PWH +54%, откат к PWH",thought:"SOL → DEX, DeFi",price:0.1615,buy:0.2527,perf:-36,t1:0.5054,t2:0.7581,slPct:30,sl:0.1769,ath:0.6322,athPct:74,lastLow:0.1769,lowPct:10,pwh:0.19,pwl:0.14,tag:"DeFi"},
  {id:15,pri:"🥉",coin:"PUMP",trend:"MID_LOW",pos:"THINK",cap:"$1.62B",comment:"ниже PWL -2%",thought:"SOL → Launchpad",price:0.0018,buy:0.0021,perf:-17,t1:0.0042,t2:0.0064,slPct:30,sl:0.0015,ath:0.009,athPct:80,lastLow:0.0015,lowPct:15,pwh:0.0021,pwl:0.0015,tag:"MEME"},
+ {id:16,pri:"🥉",coin:"CHIP",trend:"LOW",pos:"RESEARCH",cap:"-",comment:"",thought:"",price:0,buy:0,perf:0,t1:0,t2:0,slPct:30,sl:0,ath:0,athPct:0,lastLow:0,lowPct:0,pwh:0,pwl:0,tag:"AI"},
+ {id:17,pri:"🥉",coin:"CHZ",trend:"LOW",pos:"RESEARCH",cap:"-",comment:"",thought:"",price:0,buy:0,perf:0,t1:0,t2:0,slPct:30,sl:0,ath:0,athPct:0,lastLow:0,lowPct:0,pwh:0,pwl:0,tag:"L1"},
 ];
 
 /* ── COINGECKO ID MAP — verified IDs ── */
 const CG_IDS = {
   // Portfolio coins
-  GRASS:   'grass',
-  BERA:    'berachain-bera',
+  CFG:     'centrifuge',
+  EDGE:    'edgex',
+  CHIP:    'chip-2',
+  CHZ:     'chiliz',
   ASTER:   'aster-2',
   HYPE:    'hyperliquid',
   AAVE:    'aave',
@@ -251,7 +256,7 @@ const CG_IDS = {
   TON:     'the-open-network',
   MNT:     'mantle',
   AERO:    'aerodrome-finance',
-  MET:     'metaplex',
+  MET:     'meteora',
   PUMP:    'pump-fun',
   ARB:     'arbitrum',
   INJ:     'injective-protocol',
@@ -260,6 +265,10 @@ const CG_IDS = {
   BTC:     'bitcoin',
   ETH:     'ethereum',
   BNB:     'binancecoin',
+};
+const CG_ID_FALLBACKS = {
+  EDGE: ['edgex','edge'],
+  CHIP: ['usd-ai','chip'],
 };
 
 /* ── MARKET STATE (populated by API) ── */
@@ -277,22 +286,42 @@ let mkt = {
 
 const PRI_OPTS=['🧠','🥇','🥈','🥉','♨️','🆓','🪫'];
 const TRENDS=['LOW','MID_LOW','MID_UP','UP','TOO YOUNG'];
-const POSITIONS=['SPEC','LOOK','THINK'];
+const POSITIONS=['SPEC','LOOK','THINK','RESEARCH'];
 const TAGS=['AI','DeFi','MEME','L1','L2','DEX','CEX'];
-const FILTERS=['ALL','DeFi','AI','MEME','L1','L2','DEX','CEX','SPEC','LOOK','THINK'];
+const FILTERS=['ALL','DeFi','AI','MEME','L1','L2','DEX','CEX','SPEC','LOOK','THINK','RESEARCH'];
 
 /* ── STATE ── */
 let coins=[];
-let sortKey='id',sortDir=1,search='',filter='ALL',expanded=null;
+let sortKey='id',sortDir=1,search='',filter='ALL';
 const HEALTH_KEY='altdash_health_v1';
 const AUDIT_KEY='altdash_audit_v1';
 let refreshMeta = { prices:null, global:null, fng:null, asi:null, pwhl:null };
+const resolvedCgIds = {};
 
 function loadCoins(){try{const s=localStorage.getItem('altdash4');if(s)return JSON.parse(s);}catch(e){}return JSON.parse(JSON.stringify(COINS0));}
 function saveCoins(){try{localStorage.setItem('altdash4',JSON.stringify(coins));}catch(e){}}
 function saveHealth(snapshot){try{localStorage.setItem(HEALTH_KEY,JSON.stringify(snapshot));}catch(e){}}
 function saveAudit(snapshot){try{localStorage.setItem(AUDIT_KEY,JSON.stringify(snapshot));}catch(e){}}
 function toNumOrNull(v){const n=Number(v);return Number.isFinite(n)?n:null;}
+function cgIdForCoin(input){
+  if(input && typeof input === 'object'){
+    const s=String(input.coin||'').toUpperCase();
+    return input.cgId || resolvedCgIds[s] || CG_IDS[s] || null;
+  }
+  const s=String(input||'').toUpperCase();
+  return resolvedCgIds[s] || CG_IDS[s] || null;
+}
+function cgRequestIdsForCoin(input){
+  const s=String((input && typeof input==='object') ? input.coin : input || '').toUpperCase();
+  const out=[];
+  const primary = cgIdForCoin(input);
+  if(primary) out.push(primary);
+  const base = CG_IDS[s];
+  if(base && !out.includes(base)) out.push(base);
+  const fb = CG_ID_FALLBACKS[s] || [];
+  fb.forEach(id=>{ if(id && !out.includes(id)) out.push(id); });
+  return out;
+}
 function markFresh(c,key){if(!c._fresh)c._fresh={};c._fresh[key]=new Date().toISOString();}
 function markStale(c,key,reason){if(!c._stale)c._stale={};c._stale[key]={at:new Date().toISOString(),reason};}
 
@@ -300,6 +329,106 @@ function markStale(c,key,reason){if(!c._stale)c._stale={};c._stale[key]={at:new 
 function fp(n,d=4){if(n==null||isNaN(+n))return'-';n=+n;if(n>=10000)return n.toLocaleString('en',{maximumFractionDigits:0});if(n>=1000)return n.toFixed(1);if(n>=10)return n.toFixed(2);if(n>=1)return n.toFixed(3);return n.toFixed(d);}
 function fpct(n){if(n==null||isNaN(n))return'-';return(n>0?'+':'')+Math.round(n)+'%';}
 function getZone(p,pwh,pwl){if(!pwh||!pwl)return{label:'-',cls:''};const m=(pwh+pwl)/2;if(p>pwh)return{label:'Above PWH',cls:'z-above'};if(p>m)return{label:'PWH↔MID',cls:'z-mid'};if(p>pwl)return{label:'MID↔PWL',cls:'z-mid'};return{label:'Below PWL',cls:'z-below'};}
+function isAutoZoneComment(txt){
+  const t=String(txt||'').trim();
+  return /^💎 above PWH \+\d+(\.\d+)?%$/.test(t) || /^below PWL -\d+(\.\d+)?%$/.test(t);
+}
+function buildAutoZoneComment(c){
+  const p=+c.price,pwh=+c.pwh,pwl=+c.pwl;
+  if(!(Number.isFinite(p)&&Number.isFinite(pwh)&&Number.isFinite(pwl)&&pwh>0&&pwl>0))return'';
+  if(p>pwh){
+    const pct=((p-pwh)/pwh)*100;
+    return `💎 above PWH +${pct.toFixed(1)}%`;
+  }
+  if(p<pwl){
+    const pct=((pwl-p)/pwl)*100;
+    return `below PWL -${pct.toFixed(1)}%`;
+  }
+  return '';
+}
+function syncAutoZoneComments(){
+  let changed=false;
+  coins.forEach(c=>{
+    const auto=buildAutoZoneComment(c);
+    const cur=String(c.comment||'').trim();
+    if(auto){
+      if(cur!==auto){c.comment=auto;changed=true;}
+      return;
+    }
+    if(isAutoZoneComment(cur)){c.comment='';changed=true;}
+  });
+  if(changed)saveCoins();
+}
+function applyPortfolioPreset(){
+  const removeSet=new Set(['GRASS','BERA']);
+  const researchOrder=['CFG','EDGE','CHIP','CHZ'];
+  const researchSet=new Set(researchOrder);
+  let changed=false;
+  const kept=[];
+  const tailMap={};
+  coins.forEach(c=>{
+    const sym=String(c.coin||'').toUpperCase();
+    if(removeSet.has(sym)){changed=true;return;}
+    c.coin=sym;
+    if(researchSet.has(sym)){
+      tailMap[sym]=c;
+      return;
+    }
+    kept.push(c);
+  });
+  const existing=new Set(kept.map(c=>String(c.coin||'').toUpperCase()));
+  Object.keys(tailMap).forEach(sym=>existing.add(sym));
+  let nextId=Math.max(0,...[...kept,...Object.values(tailMap)].map(c=>+c.id||0))+1;
+  const addDefs=[
+    {coin:'CFG',tag:'DeFi'},
+    {coin:'EDGE',tag:'L2'},
+    {coin:'CHIP',tag:'AI'},
+    {coin:'CHZ',tag:'L1'},
+  ];
+  addDefs.forEach(def=>{
+    if(!existing.has(def.coin)){
+      tailMap[def.coin]={
+        id:nextId++,pri:'🥉',coin:def.coin,trend:'LOW',pos:'RESEARCH',cap:'-',comment:'',thought:'',
+        price:0,buy:0,perf:0,t1:0,t2:0,slPct:30,sl:0,ath:0,athPct:0,lastLow:0,lowPct:0,pwh:0,pwl:0,tag:def.tag,
+      };
+      existing.add(def.coin);
+      changed=true;
+    }
+    if(!tailMap[def.coin]) return;
+    if(tailMap[def.coin].tag!==def.tag){tailMap[def.coin].tag=def.tag;changed=true;}
+  });
+  researchOrder.forEach(sym=>{
+    const c=tailMap[sym];
+    if(!c) return;
+    if(c.pos!=='RESEARCH'){c.pos='RESEARCH';changed=true;}
+    if(!c.trend) c.trend='LOW';
+  });
+  const nextCoins=[...kept,...researchOrder.map(sym=>tailMap[sym]).filter(Boolean)];
+  if(nextCoins.length!==coins.length) changed=true;
+  else{
+    for(let i=0;i<nextCoins.length;i++){
+      if(nextCoins[i]!==coins[i]){changed=true;break;}
+    }
+  }
+  coins=nextCoins;
+  // Keep stable IDs for deterministic default sort and table tail ordering.
+  const nonTailMax=Math.max(0,...coins.filter(c=>!researchSet.has(c.coin)).map(c=>+c.id||0));
+  const idStart=nonTailMax+1;
+  researchOrder.forEach((sym,idx)=>{
+    const c=coins.find(x=>x.coin===sym);
+    if(!c) return;
+    const targetId=idStart+idx;
+    if(c.id!==targetId){c.id=targetId;changed=true;}
+  });
+  if(changed)saveCoins();
+}
+function seedResolvedCgIdsFromCoins(){
+  coins.forEach(c=>{
+    const sym=String(c?.coin||'').toUpperCase();
+    const id=String(c?.cgId||'').trim();
+    if(sym && id) resolvedCgIds[sym]=id;
+  });
+}
 function genLine(n,base,vol){let v=base;const r=[];for(let i=0;i<n;i++){v=Math.max(base*.5,Math.min(base*1.8,v+(Math.random()-.46)*vol));r.push(+v.toFixed(2));}return r;}
 
 const CHART_TFS=['7d','30d','90d'];
@@ -425,7 +554,7 @@ async function fetchAltIndexData(){
     saveHealthSnapshot();
   }catch(eSnap){
     errors.push(`snapshot:${String(eSnap?.message||eSnap)}`);
-    const ids = [...new Set(coins.map(c=>CG_IDS[c.coin]).filter(Boolean))].slice(0,12);
+    const ids = [...new Set(coins.flatMap(c=>cgRequestIdsForCoin(c)).filter(Boolean))];
     const seriesList=[];
     let failed=0;
     try{
@@ -907,11 +1036,10 @@ function renderSbar(){
 
 /* ── TABLE ── */
 // Fixed cols that can't be moved (always at start/end)
-const FIXED_START = ['_exp','pri'];
+const FIXED_START = ['pri'];
 const FIXED_END   = ['_del'];
 
 const COLS_DEFAULT=[
-  {k:'_exp',   label:'',         w:22,  nosort:true, fixed:true},
   {k:'pri',    label:'P',        w:36,  nosort:true, fixed:true},
   {k:'coin',   label:'COIN',     w:65},
   {k:'trend',  label:'TREND',    w:90},
@@ -1060,6 +1188,7 @@ function getFilteredSorted(){
 }
 
 function renderTable(){
+  syncAutoZoneComments();
   renderHead();
   const body=document.getElementById('tbl-body');
   body.innerHTML='';
@@ -1071,21 +1200,15 @@ function renderTable(){
     const rcBase=c.trend==='LOW'?'tr-low':c.trend==='TOO YOUNG'?'tr-young':c.trend==='MID_UP'?'tr-up':'tr-mid';
     const rcZone=z.label==='Above PWH'?'tr-zone-above':(z.label==='Below PWL'?'tr-zone-below':'');
     const rc = `${rcBase} ${rcZone}`.trim();
-    const isExp=expanded===c.id;
     const tr=document.createElement('tr');tr.className=rc;tr.style.cursor='pointer';
     tr.onclick=e=>{
-      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='BUTTON'||e.target.classList.contains('expbtn-row'))return;
+      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='BUTTON')return;
       showHoverCard(c);
     };
 
     /* ── cell factory: key → TD element ── */
     const cellFor = k => {
       switch(k){
-        case '_exp': {
-          const t=td('');t.innerHTML=`<span class="expbtn-row">${isExp?'▾':'▸'}</span>`;
-          t.onclick=e=>{e.stopPropagation();expanded=isExp?null:c.id;renderTable();};
-          return t;
-        }
         case 'pri': {
           const t=td('');
           const sel=document.createElement('select');sel.className='prisel';
@@ -1099,7 +1222,10 @@ function renderTable(){
           return t;
         }
         case 'pos': {
-          const t=td('');t.innerHTML=`<span class="ps-${c.pos}">${c.pos}</span>`;return t;
+          const t=td('');
+          const posLabel=(c.pos==='RESEARCH')?'Research':c.pos;
+          t.innerHTML=`<span class="ps-${c.pos}">${posLabel}</span>`;
+          return t;
         }
         case 'cap':     return tdText('mono',c.cap,{color:'#475569',fontSize:'10px'});
         case 'comment': return tdInput(c,'comment',170);
@@ -1139,30 +1265,6 @@ function renderTable(){
     /* append cells in current COLS order */
     COLS.forEach(col => tr.appendChild(cellFor(col.k)));
     body.appendChild(tr);
-
-    /* expanded detail row */
-    if(isExp){
-      const expTr=document.createElement('tr');expTr.className='exp-row';
-      const expTd=document.createElement('td');expTd.colSpan=COLS.length;
-      const rr=c.buy>0&&c.sl>0&&c.t1>0?((c.t1-c.buy)/(c.buy-c.sl)).toFixed(2):'-';
-      const risk=c.buy>0&&c.sl>0?(((c.buy-c.sl)/c.buy)*100).toFixed(1):'-';
-      const reward=c.buy>0&&c.t1>0?(((c.t1-c.buy)/c.buy)*100).toFixed(1):'-';
-      const distPWH=c.pwh>0?(((c.pwh-c.price)/c.pwh)*100).toFixed(1)+'%':'-';
-      const distPWL=c.pwl>0?'+'+(((c.price-c.pwl)/c.pwl)*100).toFixed(1)+'%':'-';
-      const mid=c.pwh&&c.pwl?fp((c.pwh+c.pwl)/2,3):'-';
-      const stats=[
-        ['Rate Now',fp(c.price),'#f1f5f9'],['PWH',fp(c.pwh,3),'#fbbf24'],['PWL',fp(c.pwl,3),'#60a5fa'],
-        ['MID Zone',mid,'#a78bfa'],['Zone',z.label,z.cls.includes('above')?'#4ade80':z.cls.includes('below')?'#f87171':'#fbbf24'],
-        ['Dist PWH',distPWH,'#fbbf24'],['Dist PWL',distPWL,'#4ade80'],
-        ['Risk %',risk+'%','#f87171'],['Reward %','+'+reward+'%','#4ade80'],
-        ['R/R Ratio',rr,+rr>=2?'#4ade80':+rr>=1?'#fbbf24':'#f87171'],
-        ['ATH',fp(c.ath),'#94a3b8'],['% ATH',c.athPct+'%','#f87171'],
-        ['Last Low',fp(c.lastLow),'#86efac'],['% Low','+'+c.lowPct+'%','#4ade80'],
-        ['Perf%',fpct(c.perf),c.perf>=0?'#22c55e':'#ef4444'],
-      ];
-      expTd.innerHTML=`<div class="exp-grid">${stats.map(([l,v,clr])=>`<div class="exp-stat"><div class="exp-lbl">${l}</div><div class="exp-val" style="color:${clr}">${v}</div></div>`).join('')}</div>`;
-      expTr.appendChild(expTd);body.appendChild(expTr);
-    }
   });
 }
 
@@ -1202,9 +1304,17 @@ function openAddModal(){
     </div>`;
   document.getElementById('modal-cancel').onclick=()=>{root.innerHTML='';};
   document.getElementById('modal-overlay').onclick=e=>{if(e.target.id==='modal-overlay'){root.innerHTML='';}};
-  document.getElementById('modal-add').onclick=()=>{
+  document.getElementById('modal-add').onclick=async ()=>{
     const coin=document.getElementById('f-coin').value.trim().toUpperCase();
     if(!coin)return alert('Enter coin symbol');
+    if(coins.some(c=>String(c.coin||'').toUpperCase()===coin)){
+      return alert(`${coin} already exists in table`);
+    }
+    const addBtn=document.getElementById('modal-add');
+    const cancelBtn=document.getElementById('modal-cancel');
+    addBtn.disabled=true;
+    cancelBtn.disabled=true;
+    addBtn.textContent='Adding...';
     const p=+document.getElementById('f-price').value||0;
     const b=+document.getElementById('f-buy').value||0;
     const a=+document.getElementById('f-ath').value||0;
@@ -1212,7 +1322,7 @@ function openAddModal(){
     const pwh=+document.getElementById('f-pwh').value||0;
     const pwl=+document.getElementById('f-pwl').value||0;
     const id=Math.max(0,...coins.map(c=>c.id))+1;
-    coins.push({
+    const newCoin={
       id,pri:document.getElementById('f-pri')?document.getElementById('f-pri').value:'🥉',
       coin,trend:document.getElementById('f-trend').value,
       pos:document.getElementById('f-pos').value,
@@ -1228,8 +1338,19 @@ function openAddModal(){
       athPct:a>0?Math.round((a-p)/a*100):0,
       lowPct:ll>0?Math.round((p-ll)/ll*100):0,
       slPct:30,
-    });
-    saveCoins();root.innerHTML='';renderTable();renderSbar();
+    };
+    coins.push(newCoin);
+    try{
+      await hydrateCoinFromApis(newCoin);
+      showToast(`✓ ${coin}: API data loaded`, 'green');
+    }catch(e){
+      markStale(newCoin,'price','add_coin_hydration_failed');
+      showToast(`${coin}: partial add (${e?.message||'API error'})`, 'amber');
+    }
+    saveCoins();
+    root.innerHTML='';
+    renderTable();
+    renderSbar();
   };
 }
 
@@ -1683,6 +1804,87 @@ function parseMarketSnapshot(payload){
   };
 }
 
+async function resolveCoinGeckoIdBySymbol(symbol){
+  const sym = String(symbol||'').trim().toUpperCase();
+  if(!sym) throw new Error('Empty symbol');
+  const known = resolvedCgIds[sym] || CG_IDS[sym];
+  if(known) return known;
+
+  const q = encodeURIComponent(sym);
+  const data = await fetchJSON(`${CG}/search?query=${q}`, { retries:2, baseDelayMs:350 });
+  const coinsList = Array.isArray(data?.coins) ? data.coins : [];
+  if(!coinsList.length) throw new Error(`Symbol ${sym} not found on CoinGecko`);
+
+  const normalized = coinsList.map(it=>({
+    id: String(it?.id||''),
+    symbol: String(it?.symbol||'').toUpperCase(),
+    name: String(it?.name||'').toUpperCase(),
+    rank: Number.isFinite(Number(it?.market_cap_rank)) ? Number(it.market_cap_rank) : 1e9,
+  })).filter(it=>it.id);
+
+  const exact = normalized.filter(it=>it.symbol===sym);
+  const near = exact.length ? exact : normalized.filter(it=>it.name===sym);
+  const pool = near.length ? near : normalized;
+  pool.sort((a,b)=>a.rank-b.rank);
+  const winner = pool[0];
+  if(!winner?.id) throw new Error(`CoinGecko ID unresolved for ${sym}`);
+  resolvedCgIds[sym] = winner.id;
+  return winner.id;
+}
+
+async function hydrateCoinFromApis(coin){
+  const sym = String(coin?.coin||'').toUpperCase();
+  if(!sym) throw new Error('Coin symbol is empty');
+  let cgId = await resolveCoinGeckoIdBySymbol(sym);
+  const candidates = [...new Set([cgId, ...cgRequestIdsForCoin(coin)])].filter(Boolean);
+  const url = `${CG}/coins/markets?vs_currency=usd&ids=${candidates.map(encodeURIComponent).join(',')}&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=24h`;
+  const list = await fetchJSON(url, { retries:2, baseDelayMs:450 });
+  const arr = Array.isArray(list) ? list : [];
+  let item = arr.find(x=>String(x?.id||'')===cgId);
+  if(!item) item = arr.find(x=>String(x?.symbol||'').toUpperCase()===sym);
+  if(!item) item = arr[0] || null;
+  if(!item) throw new Error(`No market data for ${sym}`);
+  if(item?.id){
+    cgId = String(item.id);
+    coin.cgId = cgId;
+    resolvedCgIds[sym] = cgId;
+  }
+
+  const px = toNumOrNull(item.current_price);
+  const cap = toNumOrNull(item.market_cap);
+  const fdv = toNumOrNull(item.fully_diluted_valuation);
+  const ath = toNumOrNull(item.ath);
+  const atl = toNumOrNull(item.atl);
+  if(px!=null && px>0) coin.price = px;
+  const capLabel = fmtCapLabel((cap&&cap>0)?cap:fdv);
+  if(capLabel) coin.cap = capLabel;
+  if(ath!=null && ath>0){
+    coin.ath = ath;
+    coin.athPct = coin.price>0 ? +(((ath-coin.price)/ath)*100).toFixed(1) : coin.athPct;
+  }
+  if(atl!=null && atl>0){
+    coin.lastLow = atl;
+    coin.lowPct = coin.price>0 ? +(((coin.price-atl)/atl)*100).toFixed(1) : coin.lowPct;
+  }
+
+  try{
+    const { pwh, pwl } = await fetchCoinPWHL(cgId);
+    coin.pwh = pwh;
+    coin.pwl = pwl;
+    coin.pwhUpdated = new Date().toISOString().slice(0,10);
+    if(coin.price>0 && pwl>0) coin.perf = +(((coin.price-pwl)/pwl)*100).toFixed(1);
+  }catch(e){
+    markStale(coin,'pwh','add_coin_pwhl_failed');
+    markStale(coin,'pwl','add_coin_pwhl_failed');
+  }
+
+  markFresh(coin,'price');
+  markFresh(coin,'cap');
+  markFresh(coin,'ath');
+  markFresh(coin,'atl');
+  return { cgId };
+}
+
 function parseAsiLiveHtml(html){
   const latestObj = JSON.parse(extractJsonObjectByMarker(html,'"latestScores":'));
   const scoreObj = JSON.parse(extractJsonObjectByMarker(html,'"score":'));
@@ -1754,11 +1956,12 @@ async function fetchASIData(){
 // 1) CMC snapshot => price/cap/ticker
 // 2) CoinGecko markets => ATH/ATL + fallback for missing CMC rows
 async function fetchAllPrices(){
-  const portfolioIds = [...new Set(coins.map(c=>CG_IDS[c.coin]).filter(Boolean))];
+  const portfolioIds = [...new Set(coins.flatMap(c=>cgRequestIdsForCoin(c)).filter(Boolean))];
+  const primaryPortfolioIds = [...new Set(coins.map(c=>cgIdForCoin(c)).filter(Boolean))];
   const tickerIds    = ['bitcoin','ethereum','binancecoin','solana'];
   const allIds       = [...new Set([...portfolioIds, ...tickerIds])];
   const meta = {
-    requested: portfolioIds.length,
+    requested: coins.filter(c=>cgRequestIdsForCoin(c).length>0).length,
     received: 0,
     updated: 0,
     missingIds: [],
@@ -1819,20 +2022,39 @@ async function fetchAllPrices(){
   }
 
   try{
-    const url = `${CG}/coins/markets?vs_currency=usd&ids=${allIds.join(',')}`
-              + `&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=24h`;
-    const list = await fetchJSON(url, { retries:2, baseDelayMs:450 });
+    const marketResp = await fetchCgMarketsByIds(allIds, { chunkSize:6, pauseMs:850 });
+    const list = marketResp.list;
     if(!Array.isArray(list)) throw new Error('Unexpected markets payload');
     meta.received = list.length;
+    meta.cg.mode = marketResp.mode;
+    if(Array.isArray(marketResp.errors) && marketResp.errors.length){
+      meta.cg.chunkErrors = marketResp.errors.length;
+    }
     const returnedIds = new Set(list.map(x=>x?.id).filter(Boolean));
-    meta.missingIds = portfolioIds.filter(id=>!returnedIds.has(id));
+    meta.missingIds = primaryPortfolioIds.filter(id=>!returnedIds.has(id));
 
     const byId = {};
-    list.forEach(item => { if(item?.id) byId[item.id] = item; });
+    const bySymbolUnique = {};
+    list.forEach(item => {
+      if(item?.id) byId[item.id] = item;
+      const s = String(item?.symbol||'').toUpperCase();
+      if(!s) return;
+      if(bySymbolUnique[s] === undefined) bySymbolUnique[s] = item;
+      else bySymbolUnique[s] = null; // ambiguous symbol, skip symbol fallback
+    });
 
     coins.forEach(c=>{
-      const id   = CG_IDS[c.coin];
-      const item = id ? byId[id] : null;
+      const id   = cgIdForCoin(c);
+      let item = id ? byId[id] : null;
+      if(!item){
+        const symMatch = bySymbolUnique[String(c.coin||'').toUpperCase()];
+        if(symMatch){
+          item = symMatch;
+          resolvedCgIds[String(c.coin||'').toUpperCase()] = symMatch.id;
+        }
+      }else{
+        resolvedCgIds[String(c.coin||'').toUpperCase()] = item.id;
+      }
       const hasCmcPrice = Number.isFinite(toNumOrNull(cmcQuotes?.[c.coin]?.price)) && toNumOrNull(cmcQuotes?.[c.coin]?.price) > 0;
       const hasCmcCap = !!cmcQuotes?.[c.coin]?.capLabel || Number.isFinite(toNumOrNull(cmcQuotes?.[c.coin]?.marketCap));
       if(!item){
@@ -1842,6 +2064,7 @@ async function fetchAllPrices(){
 
       const p   = toNumOrNull(item.current_price);
       const cap = toNumOrNull(item.market_cap);
+      const fdv = toNumOrNull(item.fully_diluted_valuation);
       const ath = toNumOrNull(item.ath);
       const atl = toNumOrNull(item.atl);
 
@@ -1856,11 +2079,10 @@ async function fetchAllPrices(){
         markFresh(c,'price');
         meta.updated++;
         meta.cg.priceFallback++;
-        c.perf = c.pwl > 0 ? +((p - c.pwl) / c.pwl * 100).toFixed(1) : c.perf;
       }
 
-      if(!hasCmcCap && cap && cap>0){
-        const capLabel = fmtCapLabel(cap);
+      if(!hasCmcCap && ((cap && cap>0) || (fdv && fdv>0))){
+        const capLabel = fmtCapLabel((cap && cap>0) ? cap : fdv);
         if(capLabel){
           c.cap = capLabel;
           markFresh(c,'cap');
@@ -1869,6 +2091,9 @@ async function fetchAllPrices(){
 
       const px = toNumOrNull(c.price) || p;
       if(px==null || px<=0) return;
+      if(c.pwl > 0){
+        c.perf = +((px - c.pwl) / c.pwl * 100).toFixed(1);
+      }
 
       let athAtlTouched = false;
       if(ath && ath > 0){
@@ -1954,6 +2179,40 @@ async function fetchFearGreed(){
   return { ok:true, value:v, label:mkt.fgLabel };
 }
 
+async function fetchCgMarketsByIds(ids, opts={}){
+  const uniq = [...new Set((ids||[]).filter(Boolean))];
+  if(!uniq.length) return { list:[], mode:'empty' };
+  const chunkSize = Math.max(2, Number(opts.chunkSize)||6);
+  const pauseMs = Math.max(250, Number(opts.pauseMs)||900);
+  const params = '&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=24h';
+  const mkUrl = (subset)=>`${CG}/coins/markets?vs_currency=usd&ids=${subset.map(encodeURIComponent).join(',')}${params}`;
+
+  try{
+    const bulk = await fetchJSON(mkUrl(uniq), { retries:2, baseDelayMs:500 });
+    if(Array.isArray(bulk) && bulk.length) return { list: bulk, mode:'bulk' };
+    if(Array.isArray(bulk)) return { list:[], mode:'bulk_empty' };
+    throw new Error('Unexpected markets payload');
+  }catch(eBulk){
+    const msg = String(eBulk?.message||eBulk||'');
+    const chunked = /HTTP (429|414|5\d\d)/.test(msg) || uniq.length > 8;
+    if(!chunked) throw eBulk;
+  }
+
+  const out=[];
+  const errors=[];
+  for(let i=0;i<uniq.length;i+=chunkSize){
+    const part = uniq.slice(i,i+chunkSize);
+    try{
+      const rows = await fetchJSON(mkUrl(part), { retries:3, baseDelayMs:900 });
+      if(Array.isArray(rows)) out.push(...rows);
+    }catch(e){
+      errors.push({ ids:part, err:String(e?.message||e) });
+    }
+    if(i+chunkSize<uniq.length) await new Promise(r=>setTimeout(r,pauseMs));
+  }
+  return { list: out, mode:'chunked', errors };
+}
+
 function saveHealthSnapshot(){
   const nowIso = new Date().toISOString();
   const stalePrice = coins.filter(c=>c?._stale?.price).map(c=>c.coin);
@@ -2023,10 +2282,9 @@ function saveHealthSnapshot(){
 
 async function runCoinIdAudit(){
   try{
-    const ids = [...new Set(coins.map(c=>CG_IDS[c.coin]).filter(Boolean))];
+    const ids = [...new Set(coins.flatMap(c=>cgRequestIdsForCoin(c)).filter(Boolean))];
     if(!ids.length) return;
-    const url = `${CG}/coins/markets?vs_currency=usd&ids=${ids.join(',')}&order=market_cap_desc&per_page=250&sparkline=false`;
-    const list = await fetchJSON(url, { retries:1, baseDelayMs:350 });
+    const { list } = await fetchCgMarketsByIds(ids, { chunkSize:6, pauseMs:800 });
     const got = new Set(Array.isArray(list) ? list.map(x=>x?.id).filter(Boolean) : []);
     const missing = ids.filter(id=>!got.has(id));
     saveAudit({
@@ -2061,36 +2319,41 @@ function getPrevWeekRange(){
   return { start: prevMon.getTime(), end: prevSun.getTime() };
 }
 
-// Fetch OHLC for one coin and return {pwh, pwl}
+// Fetch previous-week high/low for one coin and return {pwh, pwl}
 async function fetchCoinPWHL(cgId){
-  // CoinGecko OHLC: daily candles [ts, o, h, l, c]
-  const url = `${CG}/coins/${cgId}/ohlc?vs_currency=usd&days=14`;
-  let ohlc = null;
-  let lastErr = null;
-  for(let attempt=0; attempt<4; attempt++){
-    try{
-      ohlc = await fetchJSON(url);
-      break;
-    }catch(e){
-      lastErr = e;
-      const msg = String(e?.message || '');
-      const retryable = /HTTP (429|5\d\d)/.test(msg);
-      if(!retryable || attempt===3) throw e;
-      const backoffMs = 1000 * (attempt + 1);
-      await new Promise(r => setTimeout(r, backoffMs));
+  async function fetchOhlc(days){
+    const url = `${CG}/coins/${cgId}/ohlc?vs_currency=usd&days=${days}`;
+    let ohlc = null;
+    for(let attempt=0; attempt<4; attempt++){
+      try{
+        ohlc = await fetchJSON(url);
+        break;
+      }catch(e){
+        const msg = String(e?.message || '');
+        const retryable = /HTTP (429|5\d\d)/.test(msg);
+        if(!retryable || attempt===3) throw e;
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      }
     }
+    if(!Array.isArray(ohlc) || !ohlc.length) throw new Error(`no ohlc (${days}d)`);
+    return ohlc;
   }
-  if(!Array.isArray(ohlc) || !ohlc.length) throw new Error('no ohlc');
 
   const { start, end } = getPrevWeekRange();
-  const prevWeek = ohlc.filter(([ts]) => ts >= start && ts <= end);
+  const ohlc14 = await fetchOhlc(14);
+  let prevWeek = ohlc14.filter(([ts]) => ts >= start && ts <= end);
+  let candles = prevWeek.length >= 3 ? prevWeek : ohlc14.slice(-7);
 
-  // Fallback: if prev-week candles not found (e.g. new listing), use last 7 candles
-  const candles = prevWeek.length >= 3 ? prevWeek : ohlc.slice(-7);
+  if(!candles.length){
+    const ohlc30 = await fetchOhlc(30);
+    prevWeek = ohlc30.filter(([ts]) => ts >= start && ts <= end);
+    candles = prevWeek.length >= 3 ? prevWeek : ohlc30.slice(-7);
+  }
   if(!candles.length) throw new Error('no candles');
 
-  const pwh = Math.max(...candles.map(([,, h]) => h));
-  const pwl = Math.min(...candles.map(([,,, l]) => l));
+  const pwh = Math.max(...candles.map(([,, h]) => Number(h)).filter(Number.isFinite));
+  const pwl = Math.min(...candles.map(([,,, l]) => Number(l)).filter(Number.isFinite));
+  if(!Number.isFinite(pwh) || !Number.isFinite(pwl) || pwh<=0 || pwl<=0) throw new Error('invalid pwh/pwl');
   return { pwh: +pwh.toFixed(8), pwl: +pwl.toFixed(8) };
 }
 
@@ -2099,7 +2362,7 @@ async function fetchAllPWHL(){
   const results = { updated: 0, failed: 0, skipped: 0, failedCoins: [] };
 
   for(const c of coins){
-    const id = CG_IDS[c.coin];
+    const id = cgIdForCoin(c);
     if(!id){ results.skipped++; continue; }
     try {
       const { pwh, pwl } = await fetchCoinPWHL(id);
@@ -2130,13 +2393,38 @@ async function fetchAllPWHL(){
   return results;
 }
 
+async function backfillMissingPWHL(maxCoins=8){
+  const targets = coins.filter(c=>cgIdForCoin(c) && (!(+c.pwh>0) || !(+c.pwl>0))).slice(0,maxCoins);
+  if(!targets.length) return { updated:0, failed:0, skipped:0, failedCoins:[] };
+  const results = { updated:0, failed:0, skipped:0, failedCoins:[] };
+  for(const c of targets){
+    const id = cgIdForCoin(c);
+    try{
+      const { pwh, pwl } = await fetchCoinPWHL(id);
+      c.pwh = pwh;
+      c.pwl = pwl;
+      if(c.price>0 && pwl>0) c.perf = +((c.price - pwl) / pwl * 100).toFixed(1);
+      c.pwhUpdated = new Date().toISOString().slice(0,10);
+      markFresh(c,'pwh'); markFresh(c,'pwl');
+      results.updated++;
+      await new Promise(r=>setTimeout(r,600));
+    }catch(e){
+      results.failed++;
+      results.failedCoins.push(c.coin);
+      markStale(c,'pwh','backfill_missing_failed');
+      markStale(c,'pwl','backfill_missing_failed');
+    }
+  }
+  return results;
+}
+
 // ── PWL/PWH UPDATE BUTTON LOGIC ──
 async function refreshPWHL(){
   const btn = document.getElementById('pwhl-btn');
   if(!btn || btn.disabled) return;
   btn.disabled = true;
   btn.classList.add('spinning');
-  const totalCoins = coins.filter(c=>CG_IDS[c.coin]).length;
+  const totalCoins = coins.filter(c=>cgIdForCoin(c)).length;
   const estSec = Math.ceil(totalCoins * 1.2);
   btn.querySelector('span:last-child').textContent = `~${estSec}s...`;
 
@@ -2209,6 +2497,24 @@ async function refreshData(){
   refreshMeta.asi = results[3].status==='fulfilled'
     ? { ok:true, ...(results[3].value||{}), ts:new Date().toISOString() }
     : { ok:false, error:String(results[3].reason?.message||results[3].reason||'asi_failed'), ts:new Date().toISOString() };
+
+  if(priceOk){
+    try{
+      const pwhlBackfill = await backfillMissingPWHL(12);
+      refreshMeta.pwhl = {
+        ts:new Date().toISOString(),
+        mode:'auto_backfill_missing',
+        ...pwhlBackfill,
+      };
+    }catch(ePwhl){
+      refreshMeta.pwhl = {
+        ts:new Date().toISOString(),
+        mode:'auto_backfill_missing',
+        ok:false,
+        error:String(ePwhl?.message||ePwhl),
+      };
+    }
+  }
 
   mkt.lastRefresh = new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   if(failed.length) mkt.refreshError = failed.map(r=>String(r.reason?.message||r.reason||'error')).join('; ');
@@ -2333,6 +2639,8 @@ function hideHoverCard(){
 /* ── INIT ── */
 function init(){
   coins=loadCoins();
+  applyPortfolioPreset();
+  seedResolvedCgIdsFromCoins();
   loadChartCache();
   renderTicker();
   renderDomWidget();

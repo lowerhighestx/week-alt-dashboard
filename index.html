@@ -284,7 +284,6 @@ let mkt = {
   lastRefresh:null, refreshError:null, athUpdated:null,
 };
 
-const PRI_OPTS=['🧠','🥇','🥈','🥉','♨️','🆓','🪫'];
 const TRENDS=['LOW','MID_LOW','MID_UP','UP','TOO YOUNG'];
 const POSITIONS=['SPEC','LOOK','THINK','RESEARCH'];
 const TAGS=['AI','DeFi','MEME','L1','L2','DEX','CEX'];
@@ -329,6 +328,29 @@ function markStale(c,key,reason){if(!c._stale)c._stale={};c._stale[key]={at:new 
 function fp(n,d=4){if(n==null||isNaN(+n))return'-';n=+n;if(n>=10000)return n.toLocaleString('en',{maximumFractionDigits:0});if(n>=1000)return n.toFixed(1);if(n>=10)return n.toFixed(2);if(n>=1)return n.toFixed(3);return n.toFixed(d);}
 function fpct(n){if(n==null||isNaN(n))return'-';return(n>0?'+':'')+Math.round(n)+'%';}
 function getZone(p,pwh,pwl){if(!pwh||!pwl)return{label:'-',cls:''};const m=(pwh+pwl)/2;if(p>pwh)return{label:'Above PWH',cls:'z-above'};if(p>m)return{label:'PWH↔MID',cls:'z-mid'};if(p>pwl)return{label:'MID↔PWL',cls:'z-mid'};return{label:'Below PWL',cls:'z-below'};}
+function scorePriority(c){
+  const zLabel=getZone(c.price,c.pwh,c.pwl).label;
+  const zonePts = zLabel==='Above PWH' ? 3 : zLabel==='PWH↔MID' ? 2 : zLabel==='MID↔PWL' ? 1 : 0;
+  const t=String(c.trend||'').toUpperCase().replace(/\s+/g,'_');
+  const trendPts = (t==='TOO_YOUNG'||t==='MID_UP'||t==='UP') ? 3 : (t==='MID_LOW' ? 2 : 1);
+  const p=String(c.pos||'').toUpperCase();
+  const posPts = p==='RESEARCH' ? 3 : p==='LOOK' ? 2 : 1;
+  const perf=Number(c.perf);
+  const perfPts = !Number.isFinite(perf) ? 0 : (perf>50 ? 3 : perf>=10 ? 2 : perf>=0 ? 1 : 0);
+  const athPct=Number(c.athPct);
+  const athPts = !Number.isFinite(athPct) ? 0 : (athPct<25 ? 3 : athPct<=60 ? 2 : athPct<=80 ? 1 : 0);
+  const total = zonePts + trendPts + posPts + perfPts + athPts;
+  const medal = total>=14 ? '🧠' : total>=11 ? '🥇' : total>=8 ? '🥈' : total>=5 ? '🥉' : '♨️';
+  return { total, medal, zonePts, trendPts, posPts, perfPts, athPts };
+}
+function syncPriorityRanks(){
+  let changed=false;
+  coins.forEach(c=>{
+    const s=scorePriority(c);
+    if(c.pri!==s.medal){ c.pri=s.medal; changed=true; }
+  });
+  if(changed) saveCoins();
+}
 function isAutoZoneComment(txt){
   const t=String(txt||'').trim();
   return /^💎 above PWH \+\d+(\.\d+)?%$/.test(t) || /^below PWL -\d+(\.\d+)?%$/.test(t);
@@ -1186,6 +1208,9 @@ function getFilteredSorted(){
   if(search){const q=search.toLowerCase();d=d.filter(c=>c.coin.toLowerCase().includes(q)||c.tag.toLowerCase().includes(q)||(c.comment||'').toLowerCase().includes(q));}
   if(filter!=='ALL')d=d.filter(c=>c.tag===filter||c.pos===filter||c.trend===filter);
   d.sort((a,b)=>{
+    if(sortKey==='pri'){
+      return sortDir*(scorePriority(a).total-scorePriority(b).total);
+    }
     const av=a[sortKey],bv=b[sortKey];
     if(typeof av==='string')return sortDir*av.localeCompare(bv);
     return sortDir*((+av||0)-(+bv||0));
@@ -1195,6 +1220,7 @@ function getFilteredSorted(){
 
 function renderTable(){
   syncAutoZoneComments();
+  syncPriorityRanks();
   renderHead();
   const body=document.getElementById('tbl-body');
   body.innerHTML='';
@@ -1217,9 +1243,15 @@ function renderTable(){
       switch(k){
         case 'pri': {
           const t=td('');
-          const sel=document.createElement('select');sel.className='prisel';
-          PRI_OPTS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;if(c.pri===p)o.selected=true;sel.appendChild(o);});
-          sel.onchange=e=>{c.pri=e.target.value;saveCoins();};t.appendChild(sel);return t;
+          const sc=scorePriority(c);
+          const b=document.createElement('span');
+          b.className='mono';
+          b.textContent=sc.medal;
+          b.style.fontSize='12px';
+          b.style.fontWeight='700';
+          b.title=`Score ${sc.total}/15 | Zone ${sc.zonePts} • Trend ${sc.trendPts} • POS ${sc.posPts} • %vsPWL ${sc.perfPts} • %ATH ${sc.athPts}`;
+          t.appendChild(b);
+          return t;
         }
         case 'coin':    return tdText('coin-n mono',c.coin);
         case 'trend': {
@@ -1244,13 +1276,16 @@ function renderTable(){
         case 'lowPct':  return tdMono('+'+(c.lowPct||0)+'%',{color:'#4ade80'});
         case 'pwh': {
           const t=td('');
-          const fresh = c.pwhUpdated ? `<span title="Updated: ${c.pwhUpdated}" style="color:#334155;font-size:8px;margin-left:3px">●</span>` : '';
+          const src = c.pwhSource ? ` • ${String(c.pwhSource).toUpperCase()}` : '';
+          const fresh = c.pwhUpdated ? `<span title="Updated: ${c.pwhUpdated}${src}" style="color:#334155;font-size:8px;margin-left:3px">●</span>` : '';
           t.innerHTML=`<span class="mono" style="color:#fbbf24;font-size:10px">${fp(c.pwh,3)}</span>${fresh}`;
           return t;
         }
         case 'pwl': {
           const t=td('');
-          t.innerHTML=`<span class="mono" style="color:#60a5fa;font-size:10px">${fp(c.pwl,3)}</span>`;
+          const src = c.pwhSource ? ` • ${String(c.pwhSource).toUpperCase()}` : '';
+          const fresh = c.pwhUpdated ? `<span title="Updated: ${c.pwhUpdated}${src}" style="color:#334155;font-size:8px;margin-left:3px">●</span>` : '';
+          t.innerHTML=`<span class="mono" style="color:#60a5fa;font-size:10px">${fp(c.pwl,3)}</span>${fresh}`;
           return t;
         }
         case '_zone': {
@@ -1591,6 +1626,8 @@ function startClock(){
 
 /* ── API ── */
 const CG  = 'https://api.coingecko.com/api/v3';
+const BINANCE = 'https://api.binance.com';
+const OKX = 'https://www.okx.com';
 const FNG = 'https://api.alternative.me/fng/?limit=1';
 const ASI_URL = 'https://www.blockchaincenter.net/altcoin-season-index/';
 const ASI_SNAPSHOT_URL = './data/asi.latest.json';
@@ -1874,9 +1911,10 @@ async function hydrateCoinFromApis(coin){
   }
 
   try{
-    const { pwh, pwl } = await fetchCoinPWHL(cgId);
+    const { pwh, pwl, source } = await fetchCoinPWHL(coin);
     coin.pwh = pwh;
     coin.pwl = pwl;
+    coin.pwhSource = source || coin.pwhSource || 'coingecko';
     coin.pwhUpdated = new Date().toISOString().slice(0,10);
     if(coin.price>0 && pwl>0) coin.perf = +(((coin.price-pwl)/pwl)*100).toFixed(1);
   }catch(e){
@@ -1982,33 +2020,46 @@ async function fetchAllPrices(){
     const snapRaw = await fetchJSON(`${TOKEN_QUOTES_SNAPSHOT_URL}?v=${Date.now()}`, { retries:1, baseDelayMs:250, retryableStatuses:[500,502,503,504] });
     const snap = parseTokenQuotesSnapshot(snapRaw);
     cmcQuotes = snap.quotes || {};
-    meta.cmc.ok = true;
     meta.cmc.fetchedAt = snap.fetchedAt;
+    const fetchedMs = Date.parse(String(snap.fetchedAt||''));
+    const cmcAgeMs = Number.isFinite(fetchedMs) ? (Date.now() - fetchedMs) : Number.POSITIVE_INFINITY;
+    const cmcStale = cmcAgeMs > 6 * 60 * 60 * 1000;
+    meta.cmc.stale = cmcStale;
+    meta.cmc.ageHours = Number.isFinite(cmcAgeMs) ? +(cmcAgeMs/36e5).toFixed(2) : null;
+    if(cmcStale){
+      meta.cmc.ok = false;
+      meta.cmc.error = `snapshot_stale_${meta.cmc.ageHours}h`;
+      cmcQuotes = {};
+    }else{
+      meta.cmc.ok = true;
+    }
 
-    coins.forEach(c=>{
-      const q = cmcQuotes[c.coin];
-      const p = toNumOrNull(q?.price);
-      if(p==null || p<=0){
-        meta.cmc.missing++;
-        markStale(c,'price','cmc_quote_missing');
-        return;
-      }
-      c.price = p;
-      markFresh(c,'price');
-      meta.updated++;
-      meta.cmc.updated++;
-      c.perf = c.pwl > 0 ? +((p - c.pwl) / c.pwl * 100).toFixed(1) : c.perf;
-      if(q?.capLabel){
-        c.cap = q.capLabel;
-        markFresh(c,'cap');
-      }else{
-        const capLbl = fmtCapLabel(q?.marketCap);
-        if(capLbl){
-          c.cap = capLbl;
-          markFresh(c,'cap');
+    if(!cmcStale){
+      coins.forEach(c=>{
+        const q = cmcQuotes[c.coin];
+        const p = toNumOrNull(q?.price);
+        if(p==null || p<=0){
+          meta.cmc.missing++;
+          markStale(c,'price','cmc_quote_missing');
+          return;
         }
-      }
-    });
+        c.price = p;
+        markFresh(c,'price');
+        meta.updated++;
+        meta.cmc.updated++;
+        c.perf = c.pwl > 0 ? +((p - c.pwl) / c.pwl * 100).toFixed(1) : c.perf;
+        if(q?.capLabel){
+          c.cap = q.capLabel;
+          markFresh(c,'cap');
+        }else{
+          const capLbl = fmtCapLabel(q?.marketCap);
+          if(capLbl){
+            c.cap = capLbl;
+            markFresh(c,'cap');
+          }
+        }
+      });
+    }
 
     const setTickerFromCmc=(sym,priceKey,chgKey,round=false)=>{
       const q = cmcQuotes[sym];
@@ -2325,20 +2376,119 @@ function getPrevWeekRange(){
   return { start: prevMon.getTime(), end: prevSun.getTime() };
 }
 
-// Fetch previous-week high/low for one coin and return {pwh, pwl}
-async function fetchCoinPWHL(cgId){
+function getBinancePairCandidates(coin){
+  const sym = String(coin?.coin||'').trim().toUpperCase();
+  if(!sym) return [];
+  // Spot pairs we prioritize for weekly range in this dashboard.
+  return [`${sym}USDT`];
+}
+
+function getOkxPairCandidates(coin){
+  const sym = String(coin?.coin||'').trim().toUpperCase();
+  if(!sym) return [];
+  // OKX spot instrument naming
+  return [`${sym}-USDT`];
+}
+
+async function fetchBinancePWHL(coin){
+  const pairs = getBinancePairCandidates(coin);
+  if(!pairs.length) throw new Error('binance_pair_missing');
+  const { start, end } = getPrevWeekRange();
+  let lastErr = null;
+  for(const pair of pairs){
+    const q = new URLSearchParams({
+      symbol: pair,
+      interval: '1d',
+      startTime: String(start),
+      endTime: String(end),
+      limit: '16',
+    }).toString();
+    const url = `${BINANCE}/api/v3/klines?${q}`;
+    try{
+      const rows = await fetchJSON(url, { retries:2, baseDelayMs:550, retryableStatuses:[429,500,502,503,504] });
+      if(!Array.isArray(rows) || !rows.length) throw new Error('binance_empty_klines');
+      const highs = rows.map(r=>Number(r?.[2])).filter(Number.isFinite);
+      const lows = rows.map(r=>Number(r?.[3])).filter(Number.isFinite);
+      if(!highs.length || !lows.length) throw new Error('binance_invalid_klines');
+      const pwh = Math.max(...highs);
+      const pwl = Math.min(...lows);
+      if(!(Number.isFinite(pwh)&&Number.isFinite(pwl)&&pwh>0&&pwl>0)) throw new Error('binance_invalid_range');
+      return { pwh:+pwh.toFixed(8), pwl:+pwl.toFixed(8), source:'binance' };
+    }catch(e){
+      lastErr = e;
+    }
+  }
+  throw (lastErr || new Error('binance_fetch_failed'));
+}
+
+async function fetchOkxPWHL(coin){
+  const instIds = getOkxPairCandidates(coin);
+  if(!instIds.length) throw new Error('okx_pair_missing');
+  const { start, end } = getPrevWeekRange();
+  let lastErr = null;
+  for(const instId of instIds){
+    // Try UTC daily first, then regular daily if needed.
+    for(const bar of ['1Dutc','1D']){
+      const q = new URLSearchParams({
+        instId,
+        bar,
+        limit: '30',
+      }).toString();
+      const url = `${OKX}/api/v5/market/history-candles?${q}`;
+      try{
+        const payload = await fetchJSON(url, { retries:2, baseDelayMs:550, retryableStatuses:[429,500,502,503,504] });
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+        if(!rows.length) throw new Error('okx_empty_candles');
+        const prev = rows.filter(r=>{
+          const ts = Number(r?.[0]);
+          return Number.isFinite(ts) && ts >= start && ts <= end;
+        });
+        const candles = prev.length >= 3 ? prev : rows.slice(0,7);
+        const highs = candles.map(r=>Number(r?.[2])).filter(Number.isFinite);
+        const lows = candles.map(r=>Number(r?.[3])).filter(Number.isFinite);
+        if(!highs.length || !lows.length) throw new Error('okx_invalid_candles');
+        const pwh = Math.max(...highs);
+        const pwl = Math.min(...lows);
+        if(!(Number.isFinite(pwh)&&Number.isFinite(pwl)&&pwh>0&&pwl>0)) throw new Error('okx_invalid_range');
+        return { pwh:+pwh.toFixed(8), pwl:+pwl.toFixed(8), source:'okx' };
+      }catch(e){
+        lastErr = e;
+      }
+    }
+  }
+  throw (lastErr || new Error('okx_fetch_failed'));
+}
+
+// Fetch previous-week high/low for one coin and return {pwh, pwl, source}
+async function fetchCoinPWHL(coinInput){
+  const coinObj = coinInput && typeof coinInput==='object' ? coinInput : null;
+  const cgId = coinObj ? cgIdForCoin(coinObj) : String(coinInput||'');
+  if(coinObj){
+    try{
+      return await fetchBinancePWHL(coinObj);
+    }catch(eBinance){
+      // fallback to OKX, then to CoinGecko
+      try{
+        return await fetchOkxPWHL(coinObj);
+      }catch(eOkx){
+        // silent fallback to CoinGecko
+      }
+    }
+  }
+
   async function fetchOhlc(days){
     const url = `${CG}/coins/${cgId}/ohlc?vs_currency=usd&days=${days}`;
     let ohlc = null;
-    for(let attempt=0; attempt<4; attempt++){
+    for(let attempt=0; attempt<6; attempt++){
       try{
         ohlc = await fetchJSON(url);
         break;
       }catch(e){
         const msg = String(e?.message || '');
         const retryable = /HTTP (429|5\d\d)/.test(msg);
-        if(!retryable || attempt===3) throw e;
-        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        if(!retryable || attempt===5) throw e;
+        const backoff = 1400 * (attempt + 1) + Math.floor(Math.random()*450);
+        await new Promise(r => setTimeout(r, backoff));
       }
     }
     if(!Array.isArray(ohlc) || !ohlc.length) throw new Error(`no ohlc (${days}d)`);
@@ -2360,7 +2510,7 @@ async function fetchCoinPWHL(cgId){
   const pwh = Math.max(...candles.map(([,, h]) => Number(h)).filter(Number.isFinite));
   const pwl = Math.min(...candles.map(([,,, l]) => Number(l)).filter(Number.isFinite));
   if(!Number.isFinite(pwh) || !Number.isFinite(pwl) || pwh<=0 || pwl<=0) throw new Error('invalid pwh/pwl');
-  return { pwh: +pwh.toFixed(8), pwl: +pwl.toFixed(8) };
+  return { pwh: +pwh.toFixed(8), pwl: +pwl.toFixed(8), source:'coingecko' };
 }
 
 // Rate-limited sequential fetch for all coins (avoid 429)
@@ -2368,15 +2518,15 @@ async function fetchAllPWHL(){
   const results = { updated: 0, failed: 0, skipped: 0, failedCoins: [] };
 
   for(const c of coins){
-    const id = cgIdForCoin(c);
-    if(!id){ results.skipped++; continue; }
+    if(!cgIdForCoin(c)){ results.skipped++; continue; }
     try {
-      const { pwh, pwl } = await fetchCoinPWHL(id);
+      const { pwh, pwl, source } = await fetchCoinPWHL(c);
       const changed = (Math.abs(pwh - c.pwh) / (c.pwh||1) > 0.001) ||
                       (Math.abs(pwl - c.pwl) / (c.pwl||1) > 0.001);
       if(changed || !c.pwh || !c.pwl){
         c.pwh = pwh;
         c.pwl = pwl;
+        c.pwhSource = source || c.pwhSource || 'coingecko';
         // Recalculate perf and zone
         c.perf = pwl > 0 ? +((c.price - pwl) / pwl * 100).toFixed(1) : c.perf;
         c.pwhUpdated = new Date().toISOString().slice(0,10);
@@ -2404,11 +2554,11 @@ async function backfillMissingPWHL(maxCoins=8){
   if(!targets.length) return { updated:0, failed:0, skipped:0, failedCoins:[] };
   const results = { updated:0, failed:0, skipped:0, failedCoins:[] };
   for(const c of targets){
-    const id = cgIdForCoin(c);
     try{
-      const { pwh, pwl } = await fetchCoinPWHL(id);
+      const { pwh, pwl, source } = await fetchCoinPWHL(c);
       c.pwh = pwh;
       c.pwl = pwl;
+      c.pwhSource = source || c.pwhSource || 'coingecko';
       if(c.price>0 && pwl>0) c.perf = +((c.price - pwl) / pwl * 100).toFixed(1);
       c.pwhUpdated = new Date().toISOString().slice(0,10);
       markFresh(c,'pwh'); markFresh(c,'pwl');

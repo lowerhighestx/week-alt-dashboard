@@ -294,8 +294,10 @@ let coins=[];
 let sortKey='id',sortDir=1,search='',filter='ALL';
 const HEALTH_KEY='altdash_health_v1';
 const AUDIT_KEY='altdash_audit_v1';
-let refreshMeta = { prices:null, global:null, fng:null, asi:null, pwhl:null };
+let refreshMeta = { prices:null, global:null, fng:null, asi:null, pwhl:null, trend:null };
 const resolvedCgIds = {};
+const EMA_PERIOD = 200;
+const EMA_MUCH_BELOW_PCT = -8; // "much below EMA200"
 
 function loadCoins(){try{const s=localStorage.getItem('altdash4');if(s)return JSON.parse(s);}catch(e){}return JSON.parse(JSON.stringify(COINS0));}
 function saveCoins(){try{localStorage.setItem('altdash4',JSON.stringify(coins));}catch(e){}}
@@ -328,6 +330,20 @@ function markStale(c,key,reason){if(!c._stale)c._stale={};c._stale[key]={at:new 
 function fp(n,d=4){if(n==null||isNaN(+n))return'-';n=+n;if(n>=10000)return n.toLocaleString('en',{maximumFractionDigits:0});if(n>=1000)return n.toFixed(1);if(n>=10)return n.toFixed(2);if(n>=1)return n.toFixed(3);return n.toFixed(d);}
 function fpct(n){if(n==null||isNaN(n))return'-';return(n>0?'+':'')+Math.round(n)+'%';}
 function getZone(p,pwh,pwl){if(!pwh||!pwl)return{label:'-',cls:''};const m=(pwh+pwl)/2;if(p>pwh)return{label:'Above PWH',cls:'z-above'};if(p>m)return{label:'PWH↔MID',cls:'z-mid'};if(p>pwl)return{label:'MID↔PWL',cls:'z-mid'};return{label:'Below PWL',cls:'z-below'};}
+function calcEMA(values, period=EMA_PERIOD){
+  const arr=(values||[]).map(Number).filter(Number.isFinite);
+  if(arr.length<period) return null;
+  let ema=arr.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  const k=2/(period+1);
+  for(let i=period;i<arr.length;i++) ema=(arr[i]-ema)*k+ema;
+  return ema;
+}
+function trendFromEmaDiffPct(diffPct){
+  if(!Number.isFinite(diffPct)) return null;
+  if(diffPct>=0) return 'MID_UP';
+  if(diffPct<=EMA_MUCH_BELOW_PCT) return 'LOW';
+  return 'MID_LOW';
+}
 function scorePriority(c){
   const zLabel=getZone(c.price,c.pwh,c.pwl).label;
   const zonePts = zLabel==='Above PWH' ? 3 : zLabel==='PWH↔MID' ? 2 : zLabel==='MID↔PWL' ? 1 : 0;
@@ -1921,6 +1937,19 @@ async function hydrateCoinFromApis(coin){
     markStale(coin,'pwh','add_coin_pwhl_failed');
     markStale(coin,'pwl','add_coin_pwhl_failed');
   }
+  try{
+    const tr = await fetchCoinTrendByEMA200(coin);
+    if(tr?.trend){
+      coin.trend = tr.trend;
+      coin.ema200 = tr.ema200;
+      coin.emaDiffPct = tr.diffPct;
+      coin.trendSource = tr.source;
+      coin.trendUpdated = new Date().toISOString().slice(0,10);
+      markFresh(coin,'trend');
+    }
+  }catch(e){
+    markStale(coin,'trend','add_coin_trend_failed');
+  }
 
   markFresh(coin,'price');
   markFresh(coin,'cap');
@@ -2459,6 +2488,93 @@ async function fetchOkxPWHL(coin){
   throw (lastErr || new Error('okx_fetch_failed'));
 }
 
+async function fetchBinanceTrendByEMA200(coin){
+  const pairs = getBinancePairCandidates(coin);
+  if(!pairs.length) throw new Error('binance_pair_missing');
+  let lastErr=null;
+  for(const pair of pairs){
+    const q = new URLSearchParams({ symbol: pair, interval: '1d', limit: '260' }).toString();
+    const url = `${BINANCE}/api/v3/klines?${q}`;
+    try{
+      const rows = await fetchJSON(url, { retries:2, baseDelayMs:550, retryableStatuses:[429,500,502,503,504] });
+      if(!Array.isArray(rows) || rows.length<EMA_PERIOD) throw new Error('binance_insufficient_ema_data');
+      const closes = rows.map(r=>Number(r?.[4])).filter(Number.isFinite);
+      const ema200 = calcEMA(closes, EMA_PERIOD);
+      if(!Number.isFinite(ema200) || ema200<=0) throw new Error('binance_invalid_ema');
+      const px = Number.isFinite(Number(coin?.price)) && Number(coin.price)>0 ? Number(coin.price) : closes[closes.length-1];
+      const diffPct = ((px-ema200)/ema200)*100;
+      const trend = trendFromEmaDiffPct(diffPct);
+      if(!trend) throw new Error('binance_trend_unknown');
+      return { trend, ema200:+ema200.toFixed(8), diffPct:+diffPct.toFixed(2), source:'binance' };
+    }catch(e){ lastErr=e; }
+  }
+  throw (lastErr || new Error('binance_trend_failed'));
+}
+
+async function fetchOkxTrendByEMA200(coin){
+  const instIds = getOkxPairCandidates(coin);
+  if(!instIds.length) throw new Error('okx_pair_missing');
+  let lastErr=null;
+  for(const instId of instIds){
+    for(const bar of ['1Dutc','1D']){
+      const q = new URLSearchParams({ instId, bar, limit: '300' }).toString();
+      const url = `${OKX}/api/v5/market/history-candles?${q}`;
+      try{
+        const payload = await fetchJSON(url, { retries:2, baseDelayMs:550, retryableStatuses:[429,500,502,503,504] });
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+        if(rows.length<EMA_PERIOD) throw new Error('okx_insufficient_ema_data');
+        const ordered = rows
+          .map(r=>({ ts:Number(r?.[0]), close:Number(r?.[4]) }))
+          .filter(r=>Number.isFinite(r.ts)&&Number.isFinite(r.close))
+          .sort((a,b)=>a.ts-b.ts);
+        const closes = ordered.map(r=>r.close);
+        if(closes.length<EMA_PERIOD) throw new Error('okx_insufficient_ordered_data');
+        const ema200 = calcEMA(closes, EMA_PERIOD);
+        if(!Number.isFinite(ema200) || ema200<=0) throw new Error('okx_invalid_ema');
+        const px = Number.isFinite(Number(coin?.price)) && Number(coin.price)>0 ? Number(coin.price) : closes[closes.length-1];
+        const diffPct = ((px-ema200)/ema200)*100;
+        const trend = trendFromEmaDiffPct(diffPct);
+        if(!trend) throw new Error('okx_trend_unknown');
+        return { trend, ema200:+ema200.toFixed(8), diffPct:+diffPct.toFixed(2), source:'okx' };
+      }catch(e){ lastErr=e; }
+    }
+  }
+  throw (lastErr || new Error('okx_trend_failed'));
+}
+
+async function fetchCgTrendByEMA200(coin){
+  const cgId = cgIdForCoin(coin);
+  if(!cgId) throw new Error('cg_id_missing');
+  const url = `${CG}/coins/${encodeURIComponent(cgId)}/market_chart?vs_currency=usd&days=260&interval=daily`;
+  let payload=null;
+  for(let attempt=0; attempt<6; attempt++){
+    try{
+      payload = await fetchJSON(url, { retries:2, baseDelayMs:650, retryableStatuses:[429,500,502,503,504] });
+      break;
+    }catch(e){
+      const msg=String(e?.message||'');
+      const retryable=/HTTP (429|5\d\d)/.test(msg);
+      if(!retryable || attempt===5) throw e;
+      await new Promise(r=>setTimeout(r, 1400*(attempt+1) + Math.floor(Math.random()*450)));
+    }
+  }
+  const prices = Array.isArray(payload?.prices) ? payload.prices.map(p=>Number(p?.[1])).filter(Number.isFinite) : [];
+  if(prices.length<EMA_PERIOD) throw new Error('cg_insufficient_ema_data');
+  const ema200 = calcEMA(prices, EMA_PERIOD);
+  if(!Number.isFinite(ema200) || ema200<=0) throw new Error('cg_invalid_ema');
+  const px = Number.isFinite(Number(coin?.price)) && Number(coin.price)>0 ? Number(coin.price) : prices[prices.length-1];
+  const diffPct = ((px-ema200)/ema200)*100;
+  const trend = trendFromEmaDiffPct(diffPct);
+  if(!trend) throw new Error('cg_trend_unknown');
+  return { trend, ema200:+ema200.toFixed(8), diffPct:+diffPct.toFixed(2), source:'coingecko' };
+}
+
+async function fetchCoinTrendByEMA200(coin){
+  try{ return await fetchBinanceTrendByEMA200(coin); }catch(e1){}
+  try{ return await fetchOkxTrendByEMA200(coin); }catch(e2){}
+  return fetchCgTrendByEMA200(coin);
+}
+
 // Fetch previous-week high/low for one coin and return {pwh, pwl, source}
 async function fetchCoinPWHL(coinInput){
   const coinObj = coinInput && typeof coinInput==='object' ? coinInput : null;
@@ -2574,6 +2690,35 @@ async function backfillMissingPWHL(maxCoins=8){
   return results;
 }
 
+async function refreshTrendsByEMA200(maxCoins=24){
+  const targets = coins.filter(c=>cgIdForCoin(c)).slice(0,maxCoins);
+  const results = { updated:0, failed:0, skipped:0, failedCoins:[] };
+  for(const c of targets){
+    try{
+      const tr = await fetchCoinTrendByEMA200(c);
+      if(!tr?.trend){ results.skipped++; continue; }
+      const changed = c.trend!==tr.trend || c.ema200!==tr.ema200 || c.emaDiffPct!==tr.diffPct || c.trendSource!==tr.source;
+      if(changed){
+        c.trend = tr.trend;
+        c.ema200 = tr.ema200;
+        c.emaDiffPct = tr.diffPct;
+        c.trendSource = tr.source;
+        c.trendUpdated = new Date().toISOString().slice(0,10);
+        markFresh(c,'trend');
+        results.updated++;
+      }else{
+        results.skipped++;
+      }
+      await new Promise(r=>setTimeout(r,350));
+    }catch(e){
+      results.failed++;
+      results.failedCoins.push(c.coin);
+      markStale(c,'trend','ema200_refresh_failed');
+    }
+  }
+  return results;
+}
+
 // ── PWL/PWH UPDATE BUTTON LOGIC ──
 async function refreshPWHL(){
   const btn = document.getElementById('pwhl-btn');
@@ -2668,6 +2813,19 @@ async function refreshData(){
         mode:'auto_backfill_missing',
         ok:false,
         error:String(ePwhl?.message||ePwhl),
+      };
+    }
+    try{
+      const tr = await refreshTrendsByEMA200(24);
+      refreshMeta.trend = {
+        ts:new Date().toISOString(),
+        ...tr,
+      };
+    }catch(eTrend){
+      refreshMeta.trend = {
+        ts:new Date().toISOString(),
+        ok:false,
+        error:String(eTrend?.message||eTrend),
       };
     }
   }

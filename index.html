@@ -2896,10 +2896,11 @@ function showHoverCard(c){
       <div class="hc-field"><label>Position</label>
         <select id="hc-pos">${POSITIONS.map(p=>`<option value="${p}"${c.pos===p?' selected':''}>${p}</option>`).join('')}</select>
       </div>
-      <div class="hc-field"><label>Price</label><input id="hc-price" type="number" value="${c.price}"/></div>
-      <div class="hc-field"><label>Buy / Entry</label><input id="hc-buy" type="number" value="${c.buy}"/></div>
       <div class="hc-field"><label>PWH</label><input id="hc-pwh" type="number" value="${c.pwh}"/></div>
       <div class="hc-field"><label>PWL</label><input id="hc-pwl" type="number" value="${c.pwl}"/></div>
+      <div class="hc-field"><label>ATH</label><input id="hc-ath" type="number" value="${c.ath}"/></div>
+      <div class="hc-field"><label>Last Low</label><input id="hc-lastlow" type="number" value="${c.lastLow}"/></div>
+      <div class="hc-field full"><label>Price</label><input id="hc-price" type="number" value="${c.price}"/></div>
       <div class="hc-field full"><label>Comment</label><textarea id="hc-comment">${c.comment||''}</textarea></div>
       <div class="hc-field full"><label>Thought</label><textarea id="hc-thought">${c.thought||''}</textarea></div>
     </div>
@@ -2919,18 +2920,19 @@ function showHoverCard(c){
     const coin=coins.find(x=>x.id===c.id);
     if(!coin)return;
     const p=+document.getElementById('hc-price').value||coin.price;
-    const b=+document.getElementById('hc-buy').value||coin.buy;
     const pwh=+document.getElementById('hc-pwh').value||coin.pwh;
     const pwl=+document.getElementById('hc-pwl').value||coin.pwl;
+    const ath=+document.getElementById('hc-ath').value||coin.ath;
+    const lastLow=+document.getElementById('hc-lastlow').value||coin.lastLow;
     Object.assign(coin,{
       trend:document.getElementById('hc-trend').value,
       pos:document.getElementById('hc-pos').value,
-      price:p,buy:b,pwh,pwl,
+      price:p,pwh,pwl,ath,lastLow,
       comment:document.getElementById('hc-comment').value,
       thought:document.getElementById('hc-thought').value,
       perf:pwl>0?Math.round((p-pwl)/pwl*100):coin.perf,
-      athPct:coin.ath>0?Math.round((coin.ath-p)/coin.ath*100):coin.athPct,
-      lowPct:coin.lastLow>0?Math.round((p-coin.lastLow)/coin.lastLow*100):coin.lowPct,
+      athPct:ath>0?Math.round((ath-p)/ath*100):coin.athPct,
+      lowPct:lastLow>0?Math.round((p-lastLow)/lastLow*100):coin.lowPct,
     });
     saveCoins();renderTable();hideHoverCard();
   };

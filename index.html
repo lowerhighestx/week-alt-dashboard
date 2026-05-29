@@ -1144,11 +1144,17 @@ function loadColOrder(){
     if(!s) return [...COLS_DEFAULT];
     const order = JSON.parse(s);
     const byKey = Object.fromEntries(COLS_DEFAULT.map(c=>[c.k,c]));
-    const compact = order.filter(k=>k!=='signal');
+    const seen = new Set();
+    const compact = order.filter(k=>{
+      if(k==='signal' || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
     const capIdx = compact.indexOf('cap');
     if(capIdx !== -1) compact.splice(capIdx+1,0,'signal');
     const rebuilt = compact.map(k=>byKey[k]).filter(Boolean);
-    const missing = COLS_DEFAULT.filter(c=>!order.includes(c.k));
+    const rebuiltKeys = new Set(rebuilt.map(c=>c.k));
+    const missing = COLS_DEFAULT.filter(c=>!rebuiltKeys.has(c.k));
     return [...rebuilt, ...missing];
   } catch(e){ return [...COLS_DEFAULT]; }
 }

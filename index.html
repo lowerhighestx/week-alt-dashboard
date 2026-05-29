@@ -114,6 +114,12 @@ tr:hover td{filter:brightness(1.35)}
 .z-above{color:#4ade80;font-size:9px}
 .z-below{color:#f87171;font-size:9px}
 .z-mid{color:#fbbf24;font-size:9px}
+.sig{display:inline-block;padding:2px 7px;border-radius:9px;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+.sig-breakout{background:#082117;color:#34d399}
+.sig-accumulate{background:#1f2009;color:#facc15}
+.sig-watch{background:#111827;color:#93c5fd}
+.sig-danger{background:#220b0b;color:#f87171}
+.sig-nodata{background:#111318;color:#475569}
 .ec{background:transparent;border:none;color:var(--text);font-family:inherit;font-size:11px;width:100%;min-width:80px;outline:none}
 .ec:focus{background:#1a1f2e;border-radius:2px;outline:1px solid var(--amber);padding:1px 3px}
 /* DRAG AND DROP */
@@ -358,6 +364,34 @@ function scorePriority(c){
   const total = zonePts + trendPts + posPts + perfPts + athPts;
   const medal = total>=14 ? '🧠' : total>=11 ? '🥇' : total>=8 ? '🥈' : total>=5 ? '🥉' : '♨️';
   return { total, medal, zonePts, trendPts, posPts, perfPts, athPts };
+}
+function getSetupSignal(c){
+  const z=getZone(c.price,c.pwh,c.pwl).label;
+  const trend=String(c.trend||'').toUpperCase().replace(/\s+/g,'_');
+  const perf=Number(c.perf);
+  const athPct=Number(c.athPct);
+  const hasCore=Number(c.price)>0 && Number(c.pwh)>0 && Number(c.pwl)>0;
+  if(!hasCore) return { label:'NO DATA', cls:'sig-nodata', rank:0, title:'Missing price, PWH, or PWL' };
+
+  const isStrongTrend = trend==='MID_UP' || trend==='UP' || trend==='TOO_YOUNG';
+  const isWeakTrend = trend==='LOW';
+  const nearPwl = z==='MID↔PWL' || z==='Below PWL';
+  const abovePwh = z==='Above PWH';
+  const upperRange = z==='PWH↔MID';
+
+  if(z==='Below PWL' || (isWeakTrend && Number.isFinite(perf) && perf<0)){
+    return { label:'DANGER', cls:'sig-danger', rank:1, title:'Below PWL or weak trend with negative % vs PWL' };
+  }
+  if(abovePwh && isStrongTrend){
+    return { label:'BREAKOUT', cls:'sig-breakout', rank:5, title:'Above PWH with trend above EMA200' };
+  }
+  if((nearPwl || upperRange) && !isWeakTrend && Number.isFinite(athPct) && athPct>=25){
+    return { label:'ACCUMULATE', cls:'sig-accumulate', rank:4, title:'In range, not weak trend, with room to ATH' };
+  }
+  if(isStrongTrend || upperRange || nearPwl){
+    return { label:'WATCH', cls:'sig-watch', rank:3, title:'Potential setup, needs confirmation' };
+  }
+  return { label:'NO DATA', cls:'sig-nodata', rank:0, title:'No clear setup' };
 }
 function syncPriorityRanks(){
   let changed=false;
@@ -1099,6 +1133,7 @@ const COLS_DEFAULT=[
   {k:'lastLow',label:'LASTLOW',  w:76},
   {k:'lowPct', label:'%LOW',     w:52},
   {k:'cap',    label:'CAP',      w:68},
+  {k:'signal', label:'SETUP',    w:92},
   {k:'tag',    label:'TAG',      w:46,  nosort:true},
   {k:'_del',   label:'',         w:26,  nosort:true, fixed:true},
 ];
@@ -1109,7 +1144,10 @@ function loadColOrder(){
     if(!s) return [...COLS_DEFAULT];
     const order = JSON.parse(s);
     const byKey = Object.fromEntries(COLS_DEFAULT.map(c=>[c.k,c]));
-    const rebuilt = order.map(k=>byKey[k]).filter(Boolean);
+    const compact = order.filter(k=>k!=='signal');
+    const capIdx = compact.indexOf('cap');
+    if(capIdx !== -1) compact.splice(capIdx+1,0,'signal');
+    const rebuilt = compact.map(k=>byKey[k]).filter(Boolean);
     const missing = COLS_DEFAULT.filter(c=>!order.includes(c.k));
     return [...rebuilt, ...missing];
   } catch(e){ return [...COLS_DEFAULT]; }
@@ -1227,6 +1265,9 @@ function getFilteredSorted(){
     if(sortKey==='pri'){
       return sortDir*(scorePriority(a).total-scorePriority(b).total);
     }
+    if(sortKey==='signal'){
+      return sortDir*(getSetupSignal(a).rank-getSetupSignal(b).rank);
+    }
     const av=a[sortKey],bv=b[sortKey];
     if(typeof av==='string')return sortDir*av.localeCompare(bv);
     return sortDir*((+av||0)-(+bv||0));
@@ -1283,6 +1324,12 @@ function renderTable(){
         }
         case 'cap':     return tdText('mono',c.cap,{color:'#475569',fontSize:'10px'});
         case 'comment': return tdInput(c,'comment',170);
+        case 'signal': {
+          const sig=getSetupSignal(c);
+          const t=td('');
+          t.innerHTML=`<span class="sig ${sig.cls}" title="${sig.title}">${sig.label}</span>`;
+          return t;
+        }
         case 'thought': return tdInput(c,'thought',150);
         case 'price':   return tdMono(fp(c.price),{color:'#f1f5f9',fontWeight:600});
         case 'perf':    return tdMono(fpct(c.perf),{color:c.perf>=0?'#22c55e':'#ef4444',fontWeight:700});

@@ -1,207 +1,207 @@
 {
   "provider": "cmc_pro_api",
   "sourceUrl": "https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest",
-  "fetchedAt": "2026-08-17T23:13:37.952Z",
+  "fetchedAt": "2026-08-17T23:43:50.007Z",
   "quotes": {
     "GRASS": {
       "symbol": "GRASS",
       "slug": "grass",
       "id": 32956,
-      "price": 0.3218573318361107,
-      "marketCap": 78502641.81050378,
-      "capLabel": "$79M",
-      "percentChange24h": -0.03414544,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 0.32131156176526565,
+      "marketCap": 78369525.71170925,
+      "capLabel": "$78M",
+      "percentChange24h": -0.02138181,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "BERA": {
       "symbol": "BERA",
       "slug": "berachain",
       "id": 24647,
-      "price": 0.15078464692122276,
-      "marketCap": 47846204.314292945,
+      "price": 0.1500695486061306,
+      "marketCap": 47619293.01538211,
       "capLabel": "$48M",
-      "percentChange24h": 3.55465822,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "percentChange24h": 2.94317489,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "ASTER": {
       "symbol": "ASTER",
       "slug": "aster",
       "id": 36341,
-      "price": 0.6003451951733013,
-      "marketCap": 1622300270.6639466,
+      "price": 0.6008634615634437,
+      "marketCap": 1623700771.095638,
       "capLabel": "$1.62B",
-      "percentChange24h": 0.32951079,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "percentChange24h": 0.36251444,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "HYPE": {
       "symbol": "HYPE",
       "slug": "hyperliquid",
       "id": 32196,
-      "price": 59.17217894200258,
-      "marketCap": 14944591418.496357,
-      "capLabel": "$14.94B",
-      "percentChange24h": 3.43941687,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 59.380765200684124,
+      "marketCap": 14997272196.308575,
+      "capLabel": "$15.00B",
+      "percentChange24h": 4.03110626,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "AAVE": {
       "symbol": "AAVE",
       "slug": "aave",
       "id": 7278,
-      "price": 88.55252336267759,
-      "marketCap": 1365733264.5502844,
-      "capLabel": "$1.37B",
-      "percentChange24h": 3.05264979,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 89.1635557290269,
+      "marketCap": 1375157131.8411386,
+      "capLabel": "$1.38B",
+      "percentChange24h": 3.87989688,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "PENGU": {
       "symbol": "PENGU",
       "slug": "pudgy-penguins",
       "id": 34466,
-      "price": 0.005991498394419753,
-      "marketCap": 376627962.24606436,
-      "capLabel": "$377M",
-      "percentChange24h": 0.9378408,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 0.006006282879968616,
+      "marketCap": 377557320.86365336,
+      "capLabel": "$378M",
+      "percentChange24h": 1.70646058,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "ENA": {
       "symbol": "ENA",
       "slug": "ethena",
       "id": 30171,
-      "price": 0.08263549213185102,
-      "marketCap": 812151946.1083483,
-      "capLabel": "$812M",
-      "percentChange24h": 0.00854021,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 0.08298460457892043,
+      "marketCap": 815583066.8772024,
+      "capLabel": "$816M",
+      "percentChange24h": 0.93694463,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "PENDLE": {
       "symbol": "PENDLE",
       "slug": "pendle",
       "id": 9481,
-      "price": 1.3274346893143776,
-      "marketCap": 228529697.30393845,
-      "capLabel": "$229M",
-      "percentChange24h": 5.25354342,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 1.3255099523732206,
+      "marketCap": 228198336.7073734,
+      "capLabel": "$228M",
+      "percentChange24h": 5.38799925,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "VIRTUAL": {
       "symbol": "VIRTUAL",
       "slug": "virtual-protocol",
       "id": 29420,
-      "price": 0.5789265327799508,
-      "marketCap": 380882063.05978215,
-      "capLabel": "$381M",
-      "percentChange24h": 4.71215877,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 0.5817444894223042,
+      "marketCap": 382736027.38647944,
+      "capLabel": "$383M",
+      "percentChange24h": 5.47563496,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "ZRO": {
       "symbol": "ZRO",
       "slug": "layerzero",
       "id": 26997,
-      "price": 0.7726987383770494,
-      "marketCap": 281465442.3353437,
-      "capLabel": "$281M",
-      "percentChange24h": 2.09000876,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 0.7739231651982934,
+      "marketCap": 281911455.5352262,
+      "capLabel": "$282M",
+      "percentChange24h": 2.61386914,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "MNT": {
       "symbol": "MNT",
       "slug": "mantle",
       "id": 27075,
-      "price": 0.43983185819482645,
-      "marketCap": 1452454274.5775154,
+      "price": 0.4392096331222225,
+      "marketCap": 1450399504.215582,
       "capLabel": "$1.45B",
-      "percentChange24h": -1.83144318,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "percentChange24h": -1.96941916,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "AERO": {
       "symbol": "AERO",
       "slug": "aerodrome-finance",
       "id": 29270,
-      "price": 0.4076854865301531,
-      "marketCap": 398319620.95734334,
-      "capLabel": "$398M",
-      "percentChange24h": 0.68323897,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 0.40972995229690784,
+      "marketCap": 400317118.6760014,
+      "capLabel": "$400M",
+      "percentChange24h": 1.26386857,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "MET": {
       "symbol": "MET",
       "slug": "meteora",
       "id": 38353,
-      "price": 0.1627069256009037,
-      "marketCap": 87625292.5553042,
+      "price": 0.16286448232271228,
+      "marketCap": 87710144.22213733,
       "capLabel": "$88M",
-      "percentChange24h": 1.14255156,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "percentChange24h": 1.10551689,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "PUMP": {
       "symbol": "PUMP",
       "slug": "pump-fun",
       "id": 36507,
-      "price": 0.002745756543693215,
-      "marketCap": 1074801953.2511613,
+      "price": 0.002739125414922693,
+      "marketCap": 1072206256.9316213,
       "capLabel": "$1.07B",
-      "percentChange24h": 2.65890006,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "percentChange24h": 2.57003341,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "ARB": {
       "symbol": "ARB",
       "slug": "arbitrum",
       "id": 11841,
-      "price": 0.07479813746602006,
-      "marketCap": 494719098.3940452,
-      "capLabel": "$495M",
-      "percentChange24h": 1.64144608,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 0.0751185710236902,
+      "marketCap": 496838464.0108399,
+      "capLabel": "$497M",
+      "percentChange24h": 2.32800906,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "INJ": {
       "symbol": "INJ",
       "slug": "injective",
       "id": 7226,
-      "price": 4.053381064819007,
-      "marketCap": 405220374.0021825,
-      "capLabel": "$405M",
-      "percentChange24h": -0.43840204,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 4.072070316014799,
+      "marketCap": 407088756.2831161,
+      "capLabel": "$407M",
+      "percentChange24h": -0.21889339,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "SOL": {
       "symbol": "SOL",
       "slug": "solana",
       "id": 5426,
-      "price": 75.72361966548597,
-      "marketCap": 44138983638.08625,
-      "capLabel": "$44.14B",
-      "percentChange24h": 1.69525144,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 75.91505373338536,
+      "marketCap": 44250569761.783325,
+      "capLabel": "$44.25B",
+      "percentChange24h": 1.9297073,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "BTC": {
       "symbol": "BTC",
       "slug": "bitcoin",
       "id": 1,
-      "price": 64300.935254476535,
-      "marketCap": 1290617379377.0603,
-      "capLabel": "$1290.62B",
-      "percentChange24h": 2.23339394,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 64428.07920620459,
+      "marketCap": 1293169351492.7612,
+      "capLabel": "$1293.17B",
+      "percentChange24h": 2.57831823,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "ETH": {
       "symbol": "ETH",
       "slug": "ethereum",
       "id": 1027,
-      "price": 1905.6110952925744,
-      "marketCap": 229972829315.68488,
-      "capLabel": "$229.97B",
-      "percentChange24h": 1.63555015,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 1911.6145819285707,
+      "marketCap": 230697341683.84308,
+      "capLabel": "$230.70B",
+      "percentChange24h": 2.04983487,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     },
     "BNB": {
       "symbol": "BNB",
       "slug": "bnb",
       "id": 1839,
-      "price": 604.3473458666638,
-      "marketCap": 80477103284.23961,
-      "capLabel": "$80.48B",
-      "percentChange24h": 0.45797475,
-      "lastUpdated": "2026-08-17T23:12:03.000Z"
+      "price": 605.450040249752,
+      "marketCap": 80623942101.95871,
+      "capLabel": "$80.62B",
+      "percentChange24h": 0.53186914,
+      "lastUpdated": "2026-08-17T23:42:03.000Z"
     }
   },
   "missingSymbols": [

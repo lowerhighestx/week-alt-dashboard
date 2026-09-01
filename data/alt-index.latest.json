@@ -1,7 +1,7 @@
 {
   "provider": "cmc_pro_api",
   "sourceUrl": "https://pro-api.coinmarketcap.com/v1/altcoin-season-index/historical?timeframe=90d",
-  "fetchedAt": "2026-09-01T21:30:04.603Z",
+  "fetchedAt": "2026-09-01T23:28:57.781Z",
   "series": {
     "90d": [
       46,
@@ -93,7 +93,7 @@
       32,
       26,
       27,
-      26
+      23
     ],
     "30d": [
       51,
@@ -125,7 +125,7 @@
       32,
       26,
       27,
-      26
+      23
     ],
     "7d": [
       38,
@@ -134,11 +134,11 @@
       32,
       26,
       27,
-      26
+      23
     ]
   },
   "points": 90,
-  "latestValue": 26,
+  "latestValue": 23,
   "providersTried": [
     "cmc_pro_api"
   ],
